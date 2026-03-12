@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { ReportModule } from "./modules/report/report.module";
 import databaseConfig from "./config/database.config";
 import { envValidationSchema } from "./config/env.validation";
+import { SaleReportModule } from "./modules/sales/sales-report.module";
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { envValidationSchema } from "./config/env.validation";
         configService.get("database"),
     }),
     ReportModule,
+    SaleReportModule,
   ],
 })
 export class AppModule {}
