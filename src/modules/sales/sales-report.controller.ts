@@ -1,6 +1,6 @@
 import { Controller, Get, Query, BadRequestException } from "@nestjs/common";
 import { SalesReportService } from "./sales-report.service";
-import { ManagmentReportDto, SalesBySedeDto } from "./sales-report.dto";
+import { FuelReportBySedeDto, ManagmentReportDto, SalesBySedeDto } from "./sales-report.dto";
 
 
 @Controller("report")
@@ -21,6 +21,16 @@ export class SalesReportController {
   async getReporteVentasBySede(@Query() query: SalesBySedeDto) {    
     console.log(`📊 [GET /sales-by-sede] Local ID: ${query.id_local} | Fecha: ${query.date}`);
     return await this.reportService.getReporteVentasBySede(
+      query.id_local, 
+      query.date
+    );
+  }
+
+  @Get("fuel-by-sede")
+  async getReporteCombustiblesBySede(@Query() query: FuelReportBySedeDto) {
+    console.log(`⛽ [GET /fuel-by-sede] Local ID: ${query.id_local} | Fecha: ${query.date}`);
+    
+    return await this.reportService.getReporteCombustiblesBySede(
       query.id_local, 
       query.date
     );

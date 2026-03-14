@@ -37,3 +37,26 @@ export class SalesBySedeDto {
   })
   date: string;
 }
+
+export class FuelReportBySedeDto {
+  @IsNotEmpty({ message: "El ID del local es obligatorio" })
+  @Transform(({ value }) => {
+    const parsed = parseInt(value, 10);
+    return isNaN(parsed) ? value : parsed;
+  })
+  @IsNumber({}, { message: "El ID del local debe ser un número" })
+  @IsPositive({ message: "El ID del local debe ser un valor positivo" })
+  id_local: number;
+
+  @IsNotEmpty({ message: "La fecha es obligatoria" })
+  @IsString()
+  @Transform(({ value }) => value?.trim())
+  @Transform(({ value }) => {
+
+    if (value && !DateFormatter.isValidFormat(value)) {
+      return value; 
+    }
+    return value;
+  })
+  date: string;
+}

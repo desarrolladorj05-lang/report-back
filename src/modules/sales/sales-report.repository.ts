@@ -6,6 +6,7 @@ import {
   SalesReportResult 
 } from "src/database/procedures-documentation/sales-report.procedure";
 import { BloqueReporteSede, SalesBySedeProcedure } from "src/database/procedures-documentation/report_sales_by_sede";
+import { ReporteCombustiblesResponse, SaleFuelReportProcedure } from "src/database/procedures-documentation/report_product_sales_by_sede";
 @Injectable()
 export class SalesReportRepository extends BaseRepository<any> {
   getRepository() {
@@ -40,4 +41,21 @@ export class SalesReportRepository extends BaseRepository<any> {
 
     return reportData as BloqueReporteSede[];
   }
+
+  async getReporteCombustiblesBySede(idLocal: number, fecha: string): Promise<ReporteCombustiblesResponse> {
+    const result = await this.executeProcedure({
+      name: SaleFuelReportProcedure.REPORTE_COMBUSTIBLES_BY_SEDE.name,
+      params: {
+        p_id_local: idLocal,
+        p_fecha_busqueda: fecha,
+      },
+    });
+
+    const firstRow = result[0];
+    // Extraemos el JSONB de la primera columna
+    const reportData = firstRow ? Object.values(firstRow)[0] : null;
+
+    return reportData as ReporteCombustiblesResponse;
+  }
+
 }

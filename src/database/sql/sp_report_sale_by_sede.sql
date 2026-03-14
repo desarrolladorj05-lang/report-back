@@ -1,48 +1,19 @@
-CREATE OR REPLACE FUNCTION sp_reporte_ventas_by_sede(
-    p_id_local INT, 
-    p_fecha_busqueda TEXT 
-)
-RETURNS TABLE(resultado JSONB) 
-LANGUAGE plpgsql
-AS $$
+CREATE
+OR REPLACE FUNCTION public.sp_reporte_ventas_by_sede (p_id_local integer, p_fecha_busqueda text) RETURNS TABLE (resultado jsonb) LANGUAGE plpgsql AS $function$
 DECLARE
-    v_id_local_uuid UUID;
     v_fecha_ayer TEXT;
 BEGIN
-    SELECT id_local INTO v_id_local_uuid FROM local WHERE local_number = p_id_local LIMIT 1;
-    
-    -- Calcular fecha de ayer para la variación
+    -- Calcular fecha de ayer
     v_fecha_ayer := to_char(to_date(p_fecha_busqueda, 'DD/MM/YYYY') - interval '1 day', 'DD/MM/YYYY');
 
     RETURN QUERY
     WITH base_ventas_unificadas AS (
-        SELECT 
-            ws.shift_name as nombre_turno,
-            s.id_sale,
-            s.total_amount,
-            s.id_sale_operation_type,
-            s.transferencia_gratuita,
-            s.total_discount,
-            s.outstanding_balance,
-            s.applied_advance_amount,
-            l.name as local_nombre_real
-        FROM sale s
-        JOIN local l ON s.id_local = l.id_local
-        JOIN cash_register cr ON s.id_cash_register = cr.id_cash_register
-        JOIN work_shift ws ON cr.id_work_shift = ws.id_work_shift
-        WHERE s.state = 40001 
-          AND l.id_local = v_id_local_uuid
-          AND (
-            CASE
-                WHEN ws.shift_name = 'MAÑANA' THEN to_char((cr.opennig_date AT TIME ZONE 'America/Lima'), 'DD/MM/YYYY')
-                WHEN ws.shift_name <> 'MAÑANA' AND EXTRACT(HOUR FROM (cr.opennig_date AT TIME ZONE 'America/Lima')) < 6
-                THEN to_char((cr.opennig_date AT TIME ZONE 'America/Lima' - interval '1 day'), 'DD/MM/YYYY')
-                ELSE to_char((cr.opennig_date AT TIME ZONE 'America/Lima'), 'DD/MM/YYYY')
-            END = p_fecha_busqueda
-          )
+        SELECT * FROM vw_reporte_ventas_base
+        WHERE state = 40001 
+          AND local_number = p_id_local
+          AND fecha_negocio = p_fecha_busqueda
     ),
     ventas_ayer AS (
-        -- Obtenemos el total de ayer para comparar variaciones
         SELECT 
             dsturno as nombre_turno,
             SUM(monto)::numeric(10,2) as monto_ayer
@@ -65,7 +36,6 @@ BEGIN
             COALESCE(bv.nombre_turno, 'TOTAL GENERAL') as grupo,
             COALESCE(SUM(DISTINCT v.monto_total_turno), 0) as bruto_vista,
             COUNT(DISTINCT bv.id_sale) as total_ventas_count,
-            -- Cálculo de variación vs Ayer
             COALESCE(SUM(DISTINCT va.monto_ayer), 0) as total_ayer,
             SUM(CASE WHEN id_sale_operation_type = 4 THEN total_amount ELSE 0 END)::numeric(10,2) AS serafin,
             SUM(CASE WHEN id_sale_operation_type = 3 THEN total_amount ELSE 0 END)::numeric(10,2) AS consumo,
@@ -85,16 +55,15 @@ BEGIN
         FROM (
             SELECT 
                 COALESCE(bv.nombre_turno, 'TOTAL GENERAL') as grupo,
-                pm.name as metodo_nombre, 
-                SUM(p.amount - bv.total_discount)::numeric(10,2) as monto_neto_pago 
+                vpd.metodo_nombre, 
+                SUM(vpd.amount - bv.total_discount)::numeric(10,2) as monto_neto_pago 
             FROM base_ventas_unificadas bv
-            INNER JOIN payment p ON bv.id_sale = p.id_sale
-            INNER JOIN payment_method pm ON p.id_payment_method = pm.id_payment_method
+            INNER JOIN vw_reporte_pagos_detalle vpd ON bv.id_sale = vpd.id_sale
             WHERE bv.id_sale_operation_type NOT IN (3,4) 
               AND bv.transferencia_gratuita = 0
-              AND p.id_payment_method IN (1, 2, 6)
-              AND p.state = 40001
-            GROUP BY ROLLUP(bv.nombre_turno), pm.name
+              AND vpd.id_payment_method IN (1, 2, 6)
+              AND vpd.payment_state = 40001
+            GROUP BY ROLLUP(bv.nombre_turno), vpd.metodo_nombre
         ) t
         WHERE t.metodo_nombre IS NOT NULL
         GROUP BY t.grupo
@@ -108,7 +77,6 @@ BEGIN
             m.grupo,
             jsonb_build_object(
                 'nombre_bloque', m.grupo,
-                -- Agregamos variación y promedio en la cabecera del bloque
                 'total_operaciones', m.total_ventas_count,
                 'ticket_promedio', TO_CHAR(CASE WHEN m.total_ventas_count > 0 THEN m.bruto_vista / m.total_ventas_count ELSE 0 END, 'FM999999990.00'),
                 'variacion_vs_ayer', TO_CHAR(CASE WHEN m.total_ayer > 0 THEN ((m.bruto_vista - m.total_ayer) / m.total_ayer) * 100 ELSE 0 END, 'FM999999990.00'),
@@ -144,4 +112,4 @@ BEGIN
         WHERE m.grupo IS NOT NULL
     ) sub;
 END;
-$$;
+$function$
