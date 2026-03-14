@@ -5,6 +5,7 @@ import {
   SalesReportProcedure, 
   SalesReportResult 
 } from "src/database/procedures-documentation/sales-report.procedure";
+import { BloqueReporteSede, SalesBySedeProcedure } from "src/database/procedures-documentation/report_sales_by_sede";
 @Injectable()
 export class SalesReportRepository extends BaseRepository<any> {
   getRepository() {
@@ -20,10 +21,23 @@ export class SalesReportRepository extends BaseRepository<any> {
         p_fecha_busqueda: fecha,
       },
     });
-    // El SP retorna un array con un solo objeto JSON en la primera columna
-    // resultado: [ { resultado: { ... } } ]
+
     const firstRow = result[0];
     const reportData = firstRow ? Object.values(firstRow)[0] : null;
     return reportData as SalesReportResult;
+  }
+
+  async getReporteVentasBySede(idLocal: number, fecha: string): Promise<BloqueReporteSede[]> {
+    const result = await this.executeProcedure({
+      name: SalesBySedeProcedure.REPORTE_VENTAS_BY_SEDE.name,
+      params: {
+        p_id_local: idLocal,
+        p_fecha_busqueda: fecha,
+      },
+    });
+    const firstRow = result[0];
+    const reportData = firstRow ? Object.values(firstRow)[0] : [];
+
+    return reportData as BloqueReporteSede[];
   }
 }

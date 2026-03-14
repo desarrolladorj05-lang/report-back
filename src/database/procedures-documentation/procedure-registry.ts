@@ -1,9 +1,11 @@
 import { ReportProcedure } from "./report.procedures";
+import { SalesBySedeProcedure } from "./report_sales_by_sede";
 import { SalesReportProcedure } from "./sales-report.procedure";
 
 export const procedureRegistry = {
   ...ReportProcedure,
-  ...SalesReportProcedure
+  ...SalesReportProcedure,
+  ...SalesBySedeProcedure,
 } as const;
 
 export { SalesReportResult } from "./report.procedures";
