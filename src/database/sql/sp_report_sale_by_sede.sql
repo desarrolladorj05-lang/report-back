@@ -3,7 +3,6 @@ OR REPLACE FUNCTION public.sp_reporte_ventas_by_sede (p_id_local integer, p_fech
 DECLARE
     v_fecha_ayer TEXT;
 BEGIN
-    -- Calcular fecha de ayer
     v_fecha_ayer := to_char(to_date(p_fecha_busqueda, 'DD/MM/YYYY') - interval '1 day', 'DD/MM/YYYY');
 
     RETURN QUERY
@@ -14,21 +13,15 @@ BEGIN
           AND fecha_negocio = p_fecha_busqueda
     ),
     ventas_ayer AS (
-        SELECT 
-            dsturno as nombre_turno,
-            SUM(monto)::numeric(10,2) as monto_ayer
+        SELECT dsturno as nombre_turno, SUM(monto)::numeric(10,2) as monto_ayer
         FROM vw_mat_reporte_ventas
-        WHERE fecha_proceso = v_fecha_ayer 
-          AND idlocal = p_id_local
+        WHERE fecha_proceso = v_fecha_ayer AND idlocal = p_id_local
         GROUP BY dsturno
     ),
     base_vista AS (
-        SELECT 
-            dsturno as nombre_turno,
-            SUM(monto)::numeric(10,2) as monto_total_turno
+        SELECT dsturno as nombre_turno, SUM(monto)::numeric(10,2) as monto_total_turno
         FROM vw_mat_reporte_ventas
-        WHERE fecha_proceso = p_fecha_busqueda 
-          AND idlocal = p_id_local
+        WHERE fecha_proceso = p_fecha_busqueda AND idlocal = p_id_local
         GROUP BY dsturno
     ),
     metricas_agrupadas AS (
@@ -42,31 +35,51 @@ BEGIN
             SUM(transferencia_gratuita)::numeric(10,2) AS gratuita,
             SUM(total_discount)::numeric(10,2) AS descuentos,
             SUM(outstanding_balance)::numeric(10,2) AS credito,
-            SUM(applied_advance_amount)::numeric(10,2) AS adelanto
+            SUM(applied_advance_amount)::numeric(10,2) AS adelanto,
+            -- Lo que debería haber entrado
+            ((SUM(total_amount) - SUM(CASE WHEN id_sale_operation_type IN (3,4) THEN total_amount ELSE 0 END)) - SUM(transferencia_gratuita) - SUM(outstanding_balance) + SUM(applied_advance_amount))::numeric(10,2) as venta_contada_esperada
         FROM base_ventas_unificadas bv
         LEFT JOIN base_vista v ON bv.nombre_turno = v.nombre_turno
         LEFT JOIN ventas_ayer va ON bv.nombre_turno = va.nombre_turno
         GROUP BY ROLLUP(bv.nombre_turno)
     ),
+    pagos_identificados AS (
+        -- Pagos que SÍ están en la tabla payment
+        SELECT 
+            COALESCE(bv.nombre_turno, 'TOTAL GENERAL') as grupo,
+            COALESCE(vpd.metodo_nombre, 'OTROS PAGOS') as metodo_nombre, 
+            SUM(vpd.amount)::numeric(10,2) as monto_pago
+        FROM base_ventas_unificadas bv
+        INNER JOIN vw_reporte_pagos_detalle vpd ON bv.id_sale = vpd.id_sale
+        WHERE bv.id_sale_operation_type NOT IN (3,4) 
+          AND bv.transferencia_gratuita = 0
+          AND vpd.payment_state = 40001
+        GROUP BY ROLLUP(bv.nombre_turno), vpd.metodo_nombre
+    ),
+    -- AQUÍ BUSCAMOS LOS 44K EN EL DETALLE DE VENTA
+    pagos_pendientes_surtidor AS (
+        SELECT 
+            COALESCE(bv.nombre_turno, 'TOTAL GENERAL') as grupo,
+            'PAGOS PENDIENTES (SURTIDOR)'::text as metodo_nombre,
+            SUM(sd.total_amount)::numeric(10,2) as monto_pago
+        FROM base_ventas_unificadas bv
+        INNER JOIN sale_detail sd ON bv.id_sale = sd.id_sale
+        LEFT JOIN payment p ON bv.id_sale = p.id_sale
+        WHERE p.id_payment IS NULL -- Ventas que NO tienen registro en tabla payment
+          AND sd.id_transaction IS NOT NULL -- Pero que SÍ tienen transacción de surtidor
+          AND bv.id_sale_operation_type NOT IN (3,4)
+        GROUP BY ROLLUP(bv.nombre_turno)
+    ),
     metodos_pago_final AS (
         SELECT 
-            t.grupo,
-            jsonb_agg(jsonb_build_object('metodo', t.metodo_nombre, 'monto', TO_CHAR(t.monto_neto_pago, 'FM999999990.00'))) as pagos
+            grupo,
+            jsonb_agg(jsonb_build_object('metodo', metodo, 'monto', TO_CHAR(monto, 'FM999999990.00')) ORDER BY monto DESC) as pagos
         FROM (
-            SELECT 
-                COALESCE(bv.nombre_turno, 'TOTAL GENERAL') as grupo,
-                vpd.metodo_nombre, 
-                SUM(vpd.amount - bv.total_discount)::numeric(10,2) as monto_neto_pago 
-            FROM base_ventas_unificadas bv
-            INNER JOIN vw_reporte_pagos_detalle vpd ON bv.id_sale = vpd.id_sale
-            WHERE bv.id_sale_operation_type NOT IN (3,4) 
-              AND bv.transferencia_gratuita = 0
-              AND vpd.id_payment_method IN (1, 2, 6)
-              AND vpd.payment_state = 40001
-            GROUP BY ROLLUP(bv.nombre_turno), vpd.metodo_nombre
+            SELECT grupo, metodo_nombre as metodo, monto_pago as monto FROM pagos_identificados
+            UNION ALL
+            SELECT grupo, metodo_nombre, monto_pago FROM pagos_pendientes_surtidor
         ) t
-        WHERE t.metodo_nombre IS NOT NULL
-        GROUP BY t.grupo
+        GROUP BY grupo
     )
     SELECT jsonb_build_object(
         'nombre_sede', COALESCE((SELECT MAX(local_nombre_real) FROM base_ventas_unificadas), 'SEDE NO ENCONTRADA'),
@@ -102,7 +115,7 @@ BEGIN
                     ),
                     jsonb_build_object(
                         'titulo', 'VENTA CONTADA',
-                        'total', TO_CHAR((m.bruto_vista - (m.serafin + m.consumo + m.gratuita + m.descuentos)) - m.credito + m.adelanto, 'FM999999990.00'),
+                        'total', TO_CHAR(m.venta_contada_esperada, 'FM999999990.00'),
                         'detalle', COALESCE(mp.pagos, '[]'::jsonb)
                     )
                 )
