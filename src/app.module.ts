@@ -8,6 +8,7 @@ import databaseConfig from "./config/database.config";
 import { envValidationSchema } from "./config/env.validation";
 import { SaleReportModule } from "./modules/sales/sales-report.module";
 import { AuthModule } from "./auth/auth.module";
+import { appConfig } from "./config/app.config";
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { AuthModule } from "./auth/auth.module";
       isGlobal: true,
       envFilePath: process.env.NODE_ENV === "production" ? undefined : ".env",
       validationSchema: envValidationSchema,
-      load: [databaseConfig],
+      load: [databaseConfig, appConfig],
     }),
     ThrottlerModule.forRoot({
       throttlers: [
