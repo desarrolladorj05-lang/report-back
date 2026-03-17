@@ -1,9 +1,12 @@
-import { defineParams, defineReturns } from "../../common/helpers/procedure.helpers";
+import {
+  defineParams,
+  defineReturns,
+} from "../../common/helpers/procedure.helpers";
 
 //Detalle de conceptos (Serafín, Consumo Interno, Créditos, etc.)
 export interface ConceptoDetalle {
   concepto: string;
-  monto: string; 
+  monto: string;
 }
 
 // Detalle de métodos de pago
@@ -16,7 +19,7 @@ export interface PagoDetalle {
 export interface SeccionReporte {
   titulo: string;
   total: string;
-  detalle?: ConceptoDetalle[] | PagoDetalle[]; 
+  detalle?: ConceptoDetalle[] | PagoDetalle[];
 }
 
 // Estructura de cada bloque (Turnos o TOTAL GENERAL)

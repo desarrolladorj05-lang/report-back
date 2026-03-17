@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import { ReportService } from "./report.service";
 import { SalesFilterDto } from "./dto/sales-filter.dto";
 import {
@@ -6,12 +6,14 @@ import {
   GroupedSalesResponseDto,
   FilterOptionsResponseDto,
 } from "./dto/response.dto";
+import { JwtAuthGuard } from "../../auth/jwt.auth.guard";
 
 @Controller("report")
 export class ReportController {
   constructor(private readonly reportService: ReportService) {}
 
   // Tabla detalle (como la que muestras debajo del gráfico)
+  @UseGuards(JwtAuthGuard)
   @Get("ventas")
   async getVentas(@Query() filters: SalesFilterDto): Promise<SalesResponseDto> {
     // Asegurar que las fechas siempre tengan valores por defecto
@@ -32,6 +34,7 @@ export class ReportController {
   }
 
   // Datos agregados para gráficos (líneas, columnas, pie)
+  @UseGuards(JwtAuthGuard)
   @Get("ventas-agrupado")
   async getVentasAgrupado(
     @Query() filters: SalesFilterDto,
@@ -53,6 +56,7 @@ export class ReportController {
   }
 
   // Opciones de filtros dinámicos (turnos y productos únicos)
+  @UseGuards(JwtAuthGuard)
   @Get("filter-options")
   async getFilterOptions(
     @Query() filters: SalesFilterDto,

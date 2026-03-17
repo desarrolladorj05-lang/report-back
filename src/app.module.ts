@@ -5,6 +5,7 @@ import { ReportModule } from "./modules/report/report.module";
 import databaseConfig from "./config/database.config";
 import { envValidationSchema } from "./config/env.validation";
 import { SaleReportModule } from "./modules/sales/sales-report.module";
+import { AuthModule } from "./auth/auth.module";
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { SaleReportModule } from "./modules/sales/sales-report.module";
     }),
     ReportModule,
     SaleReportModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

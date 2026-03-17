@@ -1,4 +1,7 @@
-import { defineParams, defineReturns } from "../../common/helpers/procedure.helpers";
+import {
+  defineParams,
+  defineReturns,
+} from "../../common/helpers/procedure.helpers";
 
 // Detalle individual de cada producto (ej. Gasohol, Diesel)
 export interface ProductoCombustibleDetalle {
@@ -28,7 +31,7 @@ export const SaleFuelReportProcedure = {
     name: "sp_reporte_combustibles_by_sede",
     params: defineParams<{
       p_id_local: number;
-      p_fecha_busqueda: string; 
+      p_fecha_busqueda: string;
     }>(),
     returns: defineReturns<ReporteCombustiblesResponse>(),
     paramOrder: ["p_id_local", "p_fecha_busqueda"],

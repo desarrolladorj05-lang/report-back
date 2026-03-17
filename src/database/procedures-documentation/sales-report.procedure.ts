@@ -1,4 +1,7 @@
-import { defineParams, defineReturns } from "../../common/helpers/procedure.helpers";
+import {
+  defineParams,
+  defineReturns,
+} from "../../common/helpers/procedure.helpers";
 // 1. Definimos la interfaz para el detalle de turnos
 export interface TurnoDetalle {
   turno: string;

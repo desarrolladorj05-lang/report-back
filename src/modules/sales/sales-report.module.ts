@@ -5,9 +5,12 @@ import { SalesReportService } from "./sales-report.service";
 import { TenantDataSourceFactory } from "src/config/tenancy/tenant-ds.factory";
 
 @Module({
-    controllers: [SalesReportController],
-    providers: [SalesReportRepository, SalesReportService, TenantDataSourceFactory],
-    exports: [SalesReportService]
+  controllers: [SalesReportController],
+  providers: [
+    SalesReportRepository,
+    SalesReportService,
+    TenantDataSourceFactory,
+  ],
+  exports: [SalesReportService],
 })
-
 export class SaleReportModule {}

@@ -1,12 +1,23 @@
-import { Controller, Get, Query, BadRequestException } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Query,
+  BadRequestException,
+  UseGuards,
+} from "@nestjs/common";
 import { SalesReportService } from "./sales-report.service";
-import { FuelReportBySedeDto, ManagmentReportDto, SalesBySedeDto } from "./sales-report.dto";
-
+import {
+  FuelReportBySedeDto,
+  ManagmentReportDto,
+  SalesBySedeDto,
+} from "./sales-report.dto";
+import { JwtAuthGuard } from "../../auth/jwt.auth.guard";
 
 @Controller("report")
 export class SalesReportController {
   constructor(private readonly reportService: SalesReportService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Get("managment-sales")
   async getManagmentReportSales(@Query() query: ManagmentReportDto) {
     // Validamos que venga la fecha
@@ -17,22 +28,28 @@ export class SalesReportController {
     return await this.reportService.getManagmentReportSales(query.date);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get("sales-by-sede")
-  async getReporteVentasBySede(@Query() query: SalesBySedeDto) {    
-    console.log(`📊 [GET /sales-by-sede] Local ID: ${query.id_local} | Fecha: ${query.date}`);
+  async getReporteVentasBySede(@Query() query: SalesBySedeDto) {
+    console.log(
+      `📊 [GET /sales-by-sede] Local ID: ${query.id_local} | Fecha: ${query.date}`,
+    );
     return await this.reportService.getReporteVentasBySede(
-      query.id_local, 
-      query.date
+      query.id_local,
+      query.date,
     );
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get("fuel-by-sede")
   async getReporteCombustiblesBySede(@Query() query: FuelReportBySedeDto) {
-    console.log(`⛽ [GET /fuel-by-sede] Local ID: ${query.id_local} | Fecha: ${query.date}`);
-    
+    console.log(
+      `⛽ [GET /fuel-by-sede] Local ID: ${query.id_local} | Fecha: ${query.date}`,
+    );
+
     return await this.reportService.getReporteCombustiblesBySede(
-      query.id_local, 
-      query.date
+      query.id_local,
+      query.date,
     );
   }
 }

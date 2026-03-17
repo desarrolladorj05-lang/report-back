@@ -1,10 +1,10 @@
 import { Transform } from "class-transformer";
-import { IsString, IsNotEmpty, Matches, IsNumber, IsPositive } from "class-validator";
+import { IsString, IsNotEmpty, IsNumber, IsPositive } from "class-validator";
 import { DateFormatter } from "src/common/helpers/date-formatter.util";
 export class ManagmentReportDto {
   @IsNotEmpty({ message: "La fecha es obligatoria" })
   @IsString()
-  @Transform(({ value }) => value?.trim()) 
+  @Transform(({ value }) => value?.trim())
   @Transform(({ value }) => {
     // Validar formato antes de aceptar el valor
     if (!DateFormatter.isValidFormat(value)) {
@@ -30,8 +30,7 @@ export class SalesBySedeDto {
   @Transform(({ value }) => value?.trim())
   @Transform(({ value }) => {
     if (value && !DateFormatter.isValidFormat(value)) {
-
-      return value; 
+      return value;
     }
     return value;
   })
@@ -52,9 +51,8 @@ export class FuelReportBySedeDto {
   @IsString()
   @Transform(({ value }) => value?.trim())
   @Transform(({ value }) => {
-
     if (value && !DateFormatter.isValidFormat(value)) {
-      return value; 
+      return value;
     }
     return value;
   })
