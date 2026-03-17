@@ -1,6 +1,8 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { APP_GUARD } from "@nestjs/core";
 import { ReportModule } from "./modules/report/report.module";
 import databaseConfig from "./config/database.config";
 import { envValidationSchema } from "./config/env.validation";
@@ -15,6 +17,14 @@ import { AuthModule } from "./auth/auth.module";
       validationSchema: envValidationSchema,
       load: [databaseConfig],
     }),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60000, // 1 minute in milliseconds
+          limit: 10, // 10 requests per minute per IP
+        },
+      ],
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -24,6 +34,12 @@ import { AuthModule } from "./auth/auth.module";
     ReportModule,
     SaleReportModule,
     AuthModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

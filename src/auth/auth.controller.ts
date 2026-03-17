@@ -6,6 +6,7 @@ import {
   Get,
   Request,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { AuthService } from "./auth.service";
 import { JwtAuthGuard } from "./jwt.auth.guard";
 import { LoginDto } from "./dto/login.dto";
@@ -15,6 +16,8 @@ import { RefreshTokenDto } from "./dto/refresh-token.dto";
 @Controller("auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Throttle({ default: { limit: 4, ttl: 1200000 } }) // 4 intentos, 20 minutos (1,200,000 ms)
   @Post("login")
   async login(@Body() loginDto: LoginDto) {
     const user = await this.authService.validateUser(
@@ -28,6 +31,7 @@ export class AuthController {
     const refreshToken = await this.authService.generateRefreshToken(user.id);
     return { accessToken, refreshToken };
   }
+  @Throttle({ default: { limit: 5, ttl: 3600000 } }) // 5 registros por hora
   @Post("register")
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(
