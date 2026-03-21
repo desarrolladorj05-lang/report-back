@@ -1,43 +1,30 @@
 import { Transform } from "class-transformer";
 import { IsString, IsNotEmpty, IsNumber, IsPositive } from "class-validator";
 import { DateFormatter } from "src/common/helpers/date-formatter.util";
-export class ManagmentReportDto {
-  @IsNotEmpty({ message: "La fecha es obligatoria" })
-  @IsString()
-  @Transform(({ value }) => value?.trim())
-  @Transform(({ value }) => {
-    // Validar formato antes de aceptar el valor
-    if (!DateFormatter.isValidFormat(value)) {
-      throw new Error("La fecha debe tener el formato DD/MM/YYYY");
-    }
-    return value;
-  })
-  date: string;
-}
 
-export class SalesBySedeDto {
-  @IsNotEmpty({ message: "El ID del local es obligatorio" })
-  @Transform(({ value }) => {
-    const parsed = parseInt(value, 10);
-    return isNaN(parsed) ? value : parsed; // Intentamos convertir a número
-  })
-  @IsNumber({}, { message: "El ID del local debe ser un número" })
-  @IsPositive({ message: "El ID del local debe ser un valor positivo" })
-  id_local: number;
-
+/**
+ * DTO Base para reportes que solo requieren fecha (como el gerencial)
+ */
+export class BaseReportDto {
   @IsNotEmpty({ message: "La fecha es obligatoria" })
   @IsString()
   @Transform(({ value }) => value?.trim())
   @Transform(({ value }) => {
     if (value && !DateFormatter.isValidFormat(value)) {
-      return value;
+      // Dejamos que el Service o el pipe de validación maneje el error 
+      // o lanzamos el error aquí mismo.
+      return value; 
     }
     return value;
   })
   date: string;
 }
 
-export class FuelReportBySedeDto {
+/**
+ * DTO para todos los reportes que se filtran por SEDE y FECHA
+ * (Ventas por sede, Combustibles, Descuentos, etc.)
+ */
+export class ReportBySedeDto extends BaseReportDto {
   @IsNotEmpty({ message: "El ID del local es obligatorio" })
   @Transform(({ value }) => {
     const parsed = parseInt(value, 10);
@@ -46,15 +33,10 @@ export class FuelReportBySedeDto {
   @IsNumber({}, { message: "El ID del local debe ser un número" })
   @IsPositive({ message: "El ID del local debe ser un valor positivo" })
   id_local: number;
-
-  @IsNotEmpty({ message: "La fecha es obligatoria" })
-  @IsString()
-  @Transform(({ value }) => value?.trim())
-  @Transform(({ value }) => {
-    if (value && !DateFormatter.isValidFormat(value)) {
-      return value;
-    }
-    return value;
-  })
-  date: string;
 }
+
+// Ahora tus DTOs antiguos pueden ser simples alias o eliminarse
+export class ManagmentReportDto extends BaseReportDto {}
+export class SalesBySedeDto extends ReportBySedeDto {}
+export class FuelReportBySedeDto extends ReportBySedeDto {}
+export class AllClientReportsDto extends ReportBySedeDto {}

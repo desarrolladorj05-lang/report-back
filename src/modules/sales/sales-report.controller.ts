@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { SalesReportService } from "./sales-report.service";
 import {
+  AllClientReportsDto,
   FuelReportBySedeDto,
   ManagmentReportDto,
   SalesBySedeDto,
@@ -24,7 +25,7 @@ export class SalesReportController {
     if (!query.date) {
       throw new BadRequestException("El parámetro 'fecha' es obligatorio");
     }
-    console.log(`📊 [GET /managment-sales] Fecha solicitada: ${query.date}`);
+    console.log(`[GET /managment-sales] Fecha solicitada: ${query.date}`);
     return await this.reportService.getManagmentReportSales(query.date);
   }
 
@@ -32,7 +33,7 @@ export class SalesReportController {
   @Get("sales-by-sede")
   async getReporteVentasBySede(@Query() query: SalesBySedeDto) {
     console.log(
-      `📊 [GET /sales-by-sede] Local ID: ${query.id_local} | Fecha: ${query.date}`,
+      ` [GET /sales-by-sede] Local ID: ${query.id_local} | Fecha: ${query.date}`,
     );
     return await this.reportService.getReporteVentasBySede(
       query.id_local,
@@ -44,7 +45,7 @@ export class SalesReportController {
   @Get("fuel-by-sede")
   async getReporteCombustiblesBySede(@Query() query: FuelReportBySedeDto) {
     console.log(
-      `⛽ [GET /fuel-by-sede] Local ID: ${query.id_local} | Fecha: ${query.date}`,
+      ` [GET /fuel-by-sede] Local ID: ${query.id_local} | Fecha: ${query.date}`,
     );
 
     return await this.reportService.getReporteCombustiblesBySede(
@@ -52,4 +53,19 @@ export class SalesReportController {
       query.date,
     );
   }
+
+
+  @UseGuards(JwtAuthGuard)
+  @Get("clients-full-detail")
+  async getAllClientReports(@Query() query: AllClientReportsDto) {
+    console.log(
+      `📋 [GET /clients-full-detail] Sede: ${query.id_local} | Fecha: ${query.date}`,
+    );
+
+    return await this.reportService.getAllClientReports(
+      query.id_local,
+      query.date,
+    );
+  }
+
 }

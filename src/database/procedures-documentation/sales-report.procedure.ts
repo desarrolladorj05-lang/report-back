@@ -2,34 +2,56 @@ import {
   defineParams,
   defineReturns,
 } from "../../common/helpers/procedure.helpers";
-// 1. Definimos la interfaz para el detalle de turnos
+
+// 1. Detalle de turnos (se mantiene igual)
 export interface TurnoDetalle {
   turno: string;
   monto: number;
   porc_del_local: number;
 }
-// 2. Definimos la interfaz para cada sede en el array "sedes"
-export interface SedeReporte {
+
+// 2. Punto de datos para la gráfica de líneas/serie histórica
+export interface HistoricoVenta {
+  fecha: string;
+  venta: number;
+}
+
+// 3. Estructura para el bloque de Analytics (Acumulado del mes)
+export interface AnalyticsSede {
+  idlocal: number;
   local_nombre: string;
+  color: string;
+  total_acumulado_mes: number;
+  serie_historica: HistoricoVenta[];
+}
+
+// 4. Cada sede en el array "sedes" (Data del día)
+export interface SedeReporte {
+  idlocal: number;     // Añadido para consistencia
+  local_nombre: string;
+  color: string;        // Ahora viene de la DB
   monto_hoy: number;
   monto_ayer: number;
   porc_variacion_diaria: number;
   detalles_turnos: TurnoDetalle[];
 }
-// 3. Definimos la estructura completa del JSON que retorna el SP
+
+// 5. Estructura completa del JSON que retorna el SP
 export interface SalesReportResult {
   fecha_operativa: string;
   venta_total_todas_sedes: number;
+  variacion_total_global: number; // Añadido el porcentaje global
   sedes: SedeReporte[];
+  analytics: AnalyticsSede[];     // Nueva sección de históricos
 }
-// 4. Definimos el objeto del procedimiento
+
+// 6. Definición del procedimiento
 export const SalesReportProcedure = {
   MANAGMENT_REPORT_SALES: {
     name: "sp_managment_report_sales",
     params: defineParams<{
       p_fecha_busqueda: string; // Formato 'DD/MM/YYYY'
     }>(),
-    // El SP retorna una tabla con una columna JSON, por eso mapeamos a la interfaz
     returns: defineReturns<SalesReportResult>(),
     paramOrder: ["p_fecha_busqueda"],
   },

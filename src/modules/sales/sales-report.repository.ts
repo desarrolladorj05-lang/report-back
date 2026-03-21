@@ -13,6 +13,7 @@ import {
   ReporteCombustiblesResponse,
   SaleFuelReportProcedure,
 } from "src/database/procedures-documentation/report_product_sales_by_sede";
+import { ClientReportsProcedure, ReporteDetalleClientesResponse } from "src/database/procedures-documentation/detail_client_report";
 @Injectable()
 export class SalesReportRepository extends BaseRepository<any> {
   getRepository() {
@@ -69,4 +70,26 @@ export class SalesReportRepository extends BaseRepository<any> {
 
     return reportData as ReporteCombustiblesResponse;
   }
+
+
+  async getAllClientReports(idLocal: number, fecha: string): Promise<ReporteDetalleClientesResponse> {
+    const result = await this.executeProcedure({
+      name: ClientReportsProcedure.GET_ALL_CLIENT_REPORTS.name,
+      params: {
+        p_id_local: idLocal,
+        p_fecha_busqueda: fecha,
+      },
+    });
+
+    // Como el SP devuelve RETURNS TABLE (resultado jsonb)
+    const firstRow = result[0];
+    
+    // Extraemos la columna 'resultado'
+    const reportData = firstRow ? firstRow['resultado'] : null;
+
+    return reportData as ReporteDetalleClientesResponse;
+  }
+
 }
+
+
