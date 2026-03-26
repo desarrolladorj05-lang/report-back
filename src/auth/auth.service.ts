@@ -25,7 +25,7 @@ export class AuthService {
     const user = await this.validateUser(username, password);
 
     if (!user) {
-      throw new UnauthorizedException("Credenciales inválidas");
+      throw new UnauthorizedException("Credenciales inválidas.");
     }
     const payload = { username: user.username, sub: user.id };
 

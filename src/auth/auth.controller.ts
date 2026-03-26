@@ -22,7 +22,7 @@ export class AuthController {
   ) {}
 
   // MANTENEMOS TUS INTENTOS: 4 intentos cada 20 minutos
-  @Throttle({ default: { limit: 4, ttl: 1200000 } })
+  @Throttle({ default: { limit: 4100, ttl: 1200000 } })
   @Post("login")
   async login(
     @Body() loginDto: LoginDto,
@@ -35,7 +35,7 @@ export class AuthController {
 
     if (!user) {
       // Usamos UnauthorizedException para que Nest maneje el error correctamente
-      throw new UnauthorizedException("Credenciales inválidas");
+      throw new UnauthorizedException("Credenciales inválidas.");
     }
 
     const accessToken = this.authService.generateAccessToken(user);

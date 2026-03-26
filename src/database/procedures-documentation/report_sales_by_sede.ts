@@ -24,7 +24,7 @@ export interface BloqueReporteSede {
   nombre_bloque: string;
   total_operaciones: number;
   ticket_promedio: string;
-  variacion_vs_ayer: string;
+  variacion: string;
   secciones: SeccionReporte[];
 }
 

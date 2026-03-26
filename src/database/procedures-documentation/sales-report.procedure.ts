@@ -10,13 +10,13 @@ export interface TurnoDetalle {
   porc_del_local: number;
 }
 
-// 2. Punto de datos para la gráfica de líneas/serie histórica
+// 2. Punto de datos para la gráfica de líneas (se mantiene igual)
 export interface HistoricoVenta {
   fecha: string;
   venta: number;
 }
 
-// 3. Estructura para el bloque de Analytics (Acumulado del mes)
+// 3. Estructura para el bloque de Analytics por Sede
 export interface AnalyticsSede {
   idlocal: number;
   local_nombre: string;
@@ -25,24 +25,28 @@ export interface AnalyticsSede {
   serie_historica: HistoricoVenta[];
 }
 
-// 4. Cada sede en el array "sedes" (Data del día)
+// 4. Cada sede en el array "sedes"
 export interface SedeReporte {
-  idlocal: number;     // Añadido para consistencia
+  idlocal: number;
   local_nombre: string;
-  color: string;        // Ahora viene de la DB
+  color: string;
   monto_hoy: number;
   monto_ayer: number;
   porc_variacion_diaria: number;
   detalles_turnos: TurnoDetalle[];
 }
 
-// 5. Estructura completa del JSON que retorna el SP
+// 5. Estructura completa del JSON que retorna el SP (ACTUALIZADO)
 export interface SalesReportResult {
   fecha_operativa: string;
   venta_total_todas_sedes: number;
-  variacion_total_global: number; // Añadido el porcentaje global
+  variacion_total_global: number;
+  
+  // NUEVO: Serie histórica global de todas las sedes combinadas
+  analytics_general: HistoricoVenta[]; 
+  
   sedes: SedeReporte[];
-  analytics: AnalyticsSede[];     // Nueva sección de históricos
+  analytics: AnalyticsSede[];
 }
 
 // 6. Definición del procedimiento
