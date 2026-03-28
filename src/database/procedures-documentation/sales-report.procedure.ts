@@ -41,10 +41,8 @@ export interface SalesReportResult {
   fecha_operativa: string;
   venta_total_todas_sedes: number;
   variacion_total_global: number;
-  
-  // NUEVO: Serie histórica global de todas las sedes combinadas
+  total_acumulado_global:number;
   analytics_general: HistoricoVenta[]; 
-  
   sedes: SedeReporte[];
   analytics: AnalyticsSede[];
 }

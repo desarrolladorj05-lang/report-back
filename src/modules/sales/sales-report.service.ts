@@ -2,9 +2,9 @@ import { Injectable, BadRequestException } from "@nestjs/common";
 import { SalesReportResult } from "src/database/procedures-documentation/sales-report.procedure";
 import { SalesReportRepository } from "./sales-report.repository";
 import { DateFormatter } from "src/common/helpers/date-formatter.util";
-import { BloqueReporteSede } from "src/database/procedures-documentation/report_sales_by_sede";
-import { ReporteCombustiblesResponse } from "src/database/procedures-documentation/report_product_sales_by_sede";
+import {  RespuestaReporteSede } from "src/database/procedures-documentation/report_sales_by_sede";
 import { ReporteDetalleClientesResponse } from "src/database/procedures-documentation/detail_client_report";
+import { ReporteCombustiblesSede } from "src/database/procedures-documentation/report_product_sales_by_sede";
 
 @Injectable()
 export class SalesReportService {
@@ -18,33 +18,35 @@ export class SalesReportService {
     return result;
   }
 
-  async getReporteVentasBySede(
-    idLocal: number,
-    fecha: string,
-  ): Promise<BloqueReporteSede[]> {
-    this.validateParams(idLocal, fecha);
+ async getReporteVentasBySede(
+    idLocal?: number,
+    fecha?: string,
+  ): Promise<RespuestaReporteSede[]> {
+    // Validamos solo la fecha, ya que el idLocal puede ser undefined
+    if (!fecha) throw new Error("La fecha es obligatoria");
 
     const result = await this.reportRepository.getReporteVentasBySede(
       idLocal,
       fecha,
     );
-    return result || [];
+    
+    return result; // Ya viene como array desde el repository
   }
+ async getReporteCombustiblesBySede(
+    idLocal?: number, 
+    fecha?: string,
+  ): Promise<ReporteCombustiblesSede[]> {
+    
+    if (!fecha) throw new Error("La fecha es obligatoria");
 
-  async getReporteCombustiblesBySede(
-    idLocal: number,
-    fecha: string,
-  ): Promise<ReporteCombustiblesResponse> {
-    this.validateParams(idLocal, fecha);
-
-    const result = await this.reportRepository.getReporteCombustiblesBySede(
-      idLocal,
+    const result = await this.reportRepository.getFuelReportBySede(
+      idLocal, 
       fecha,
     );
 
-    if (!result) {
+    if (!result || result.length === 0) {
       throw new BadRequestException(
-        "No se encontró información para la sede y fecha especificada",
+        "No se encontró información de combustibles para los parámetros especificados",
       );
     }
 

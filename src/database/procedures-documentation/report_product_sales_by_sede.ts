@@ -18,8 +18,8 @@ export interface BloqueReporteCombustible {
   detalle_productos: ProductoCombustibleDetalle[];
 }
 
-// Respuesta principal del procedimiento
-export interface ReporteCombustiblesResponse {
+// Estructura raíz de una sede
+export interface ReporteCombustiblesSede {
   nombre_sede: string;
   categoria: string;
   reporte_por_turnos: BloqueReporteCombustible[];
@@ -30,10 +30,11 @@ export const SaleFuelReportProcedure = {
   REPORTE_COMBUSTIBLES_BY_SEDE: {
     name: "sp_reporte_combustibles_by_sede",
     params: defineParams<{
-      p_id_local: number;
+      p_id_local: number | null; // Cambiado a permitir null
       p_fecha_busqueda: string;
     }>(),
-    returns: defineReturns<ReporteCombustiblesResponse>(),
+    // IMPORTANTE: El SP puede devolver una sola sede o un array de sedes
+    returns: defineReturns<ReporteCombustiblesSede | ReporteCombustiblesSede[]>(),
     paramOrder: ["p_id_local", "p_fecha_busqueda"],
   },
 };

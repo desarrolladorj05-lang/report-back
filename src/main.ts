@@ -20,7 +20,7 @@ async function bootstrap() {
   // Enable CORS for frontend (Netlify + local dev)
   app.enableCors({
     origin: [
-      "https://managment-report.isi.com.pe", // Producción cloudFlare
+      "https://management-report.isi.com.pe", // Producción cloudFlare
       "http://localhost:5173", // Vite dev
       "http://localhost:3000", // Local testing
     ],

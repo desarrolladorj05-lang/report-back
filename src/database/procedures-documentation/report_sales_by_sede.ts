@@ -39,11 +39,11 @@ export const SalesBySedeProcedure = {
   REPORTE_VENTAS_BY_SEDE: {
     name: "sp_reporte_ventas_by_sede",
     params: defineParams<{
-      p_id_local: number;
-      p_fecha_busqueda: string; // Formato 'DD/MM/YYYY'
+      p_id_local: number | null; 
+      p_fecha_busqueda: string;
     }>(),
-    // IMPORTANTE: El SP devuelve un OBJETO único, no un array directo.
-    returns: defineReturns<RespuestaReporteSede>(),
+    // El retorno ahora es una Unión de Tipos para ser honestos con el SP
+    returns: defineReturns<RespuestaReporteSede | RespuestaReporteSede[]>(),
     paramOrder: ["p_id_local", "p_fecha_busqueda"],
   },
 };

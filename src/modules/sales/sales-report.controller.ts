@@ -13,6 +13,7 @@ import {
   SalesBySedeDto,
 } from "./sales-report.dto";
 import { JwtAuthGuard } from "../../auth/jwt.auth.guard";
+import { RespuestaReporteSede } from "src/database/procedures-documentation/report_sales_by_sede";
 
 @Controller("report")
 export class SalesReportController {
@@ -29,12 +30,13 @@ export class SalesReportController {
     return await this.reportService.getManagmentReportSales(query.date);
   }
 
-  @UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard)
   @Get("sales-by-sede")
-  async getReporteVentasBySede(@Query() query: SalesBySedeDto) {
+  async getReporteVentasBySede(@Query() query: SalesBySedeDto): Promise<RespuestaReporteSede[]> {
     console.log(
-      ` [GET /sales-by-sede] Local ID: ${query.id_local} | Fecha: ${query.date}`,
+      ` [GET /sales-by-sede] Local ID: ${query.id_local ?? 'TODOS'} | Fecha: ${query.date}`,
     );
+    
     return await this.reportService.getReporteVentasBySede(
       query.id_local,
       query.date,
@@ -42,18 +44,17 @@ export class SalesReportController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get("fuel-by-sede")
-  async getReporteCombustiblesBySede(@Query() query: FuelReportBySedeDto) {
-    console.log(
-      ` [GET /fuel-by-sede] Local ID: ${query.id_local} | Fecha: ${query.date}`,
-    );
+@Get("fuel-by-sede")
+async getReporteCombustiblesBySede(@Query() query: FuelReportBySedeDto) {
+  console.log(
+    ` [GET /fuel-by-sede] Local ID: ${query.id_local ?? 'TODAS'} | Fecha: ${query.date}`,
+  );
 
-    return await this.reportService.getReporteCombustiblesBySede(
-      query.id_local,
-      query.date,
-    );
-  }
-
+  return await this.reportService.getReporteCombustiblesBySede(
+    query.id_local, 
+    query.date,
+  );
+}
 
   @UseGuards(JwtAuthGuard)
   @Get("clients-full-detail")

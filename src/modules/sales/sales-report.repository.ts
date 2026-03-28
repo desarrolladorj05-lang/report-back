@@ -7,10 +7,11 @@ import {
 } from "src/database/procedures-documentation/sales-report.procedure";
 import {
   BloqueReporteSede,
+  RespuestaReporteSede,
   SalesBySedeProcedure,
 } from "src/database/procedures-documentation/report_sales_by_sede";
 import {
-  ReporteCombustiblesResponse,
+  ReporteCombustiblesSede,
   SaleFuelReportProcedure,
 } from "src/database/procedures-documentation/report_product_sales_by_sede";
 import { ClientReportsProcedure, ReporteDetalleClientesResponse } from "src/database/procedures-documentation/detail_client_report";
@@ -35,41 +36,41 @@ export class SalesReportRepository extends BaseRepository<any> {
     return reportData as SalesReportResult;
   }
 
-  async getReporteVentasBySede(
-    idLocal: number,
-    fecha: string,
-  ): Promise<BloqueReporteSede[]> {
-    const result = await this.executeProcedure({
-      name: SalesBySedeProcedure.REPORTE_VENTAS_BY_SEDE.name,
-      params: {
-        p_id_local: idLocal,
-        p_fecha_busqueda: fecha,
-      },
-    });
-    const firstRow = result[0];
-    const reportData = firstRow ? Object.values(firstRow)[0] : [];
+async getReporteVentasBySede(
+  idLocal?: number,
+  fecha?: string,
+): Promise<RespuestaReporteSede[]> {
+  const result = await this.executeProcedure({
+    name: SalesBySedeProcedure.REPORTE_VENTAS_BY_SEDE.name,
+    params: {
+      p_id_local: idLocal ?? null, 
+      p_fecha_busqueda: fecha,
+    },
+  });
+  const rawData = result[0] ? Object.values(result[0])[0] : null;
+  if (!rawData) return [];
+  return Array.isArray(rawData) ? rawData : [rawData as RespuestaReporteSede];
+}
 
-    return reportData as BloqueReporteSede[];
-  }
+ async getFuelReportBySede(
+  idLocal?: number,
+  fecha?: string,
+): Promise<ReporteCombustiblesSede[]> {
+  const result = await this.executeProcedure({
+    name: SaleFuelReportProcedure.REPORTE_COMBUSTIBLES_BY_SEDE.name,
+    params: {
+      p_id_local: idLocal ?? null,
+      p_fecha_busqueda: fecha,
+    },
+  });
 
-  async getReporteCombustiblesBySede(
-    idLocal: number,
-    fecha: string,
-  ): Promise<ReporteCombustiblesResponse> {
-    const result = await this.executeProcedure({
-      name: SaleFuelReportProcedure.REPORTE_COMBUSTIBLES_BY_SEDE.name,
-      params: {
-        p_id_local: idLocal,
-        p_fecha_busqueda: fecha,
-      },
-    });
+  const rawData = result[0] ? Object.values(result[0])[0] : null;
 
-    const firstRow = result[0];
-    // Extraemos el JSONB de la primera columna
-    const reportData = firstRow ? Object.values(firstRow)[0] : null;
+  if (!rawData) return [];
 
-    return reportData as ReporteCombustiblesResponse;
-  }
+  // NORMALIZACIÓN: Siempre devolvemos un Array
+  return Array.isArray(rawData) ? rawData : [rawData as ReporteCombustiblesSede];
+}
 
 
   async getAllClientReports(idLocal: number, fecha: string): Promise<ReporteDetalleClientesResponse> {
