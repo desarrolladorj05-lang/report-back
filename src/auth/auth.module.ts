@@ -8,11 +8,16 @@ import { AuthController } from "./auth.controller";
 import { appConfig } from "../config/app.config";
 import { JwtStrategy } from "./jwt.strategy";
 import { user_auth } from "src/users/user.entity";
+import { SSemModule } from "src/users/module.entity";
+import { SSemUserModule } from "src/users/user_module.entity";
 @Module({
   imports: [
     PassportModule,
-    TypeOrmModule.forFeature([user_auth]),
-    ConfigModule,
+      TypeOrmModule.forFeature([
+      user_auth, 
+      SSemModule, 
+      SSemUserModule
+    ]),    ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [appConfig.KEY],

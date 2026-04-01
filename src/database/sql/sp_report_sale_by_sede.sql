@@ -1,7 +1,5 @@
-
-
-CREATE OR REPLACE FUNCTION public.sp_reporte_ventas_by_sede (p_id_local integer, p_fecha_busqueda text) 
-RETURNS TABLE (resultado jsonb) LANGUAGE plpgsql AS $function$
+CREATE
+OR REPLACE FUNCTION public.sp_reporte_ventas_by_sede (p_id_local integer, p_fecha_busqueda text) RETURNS TABLE (resultado jsonb) LANGUAGE plpgsql AS $function$
 DECLARE
     v_fecha_ayer TEXT;
     v_cash_registers UUID[];

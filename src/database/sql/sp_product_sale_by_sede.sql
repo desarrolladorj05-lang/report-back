@@ -1,17 +1,22 @@
-CREATE OR REPLACE FUNCTION public.sp_reporte_combustibles_by_sede (
-    p_id_local integer DEFAULT NULL,
-    p_fecha_busqueda text DEFAULT NULL
+CREATE
+OR REPLACE FUNCTION public.sp_reporte_combustibles_by_sede (
+  p_id_local integer DEFAULT NULL::integer,
+  p_fecha_busqueda text DEFAULT NULL::text
 ) RETURNS TABLE (resultado jsonb) LANGUAGE plpgsql AS $function$
 BEGIN
     RETURN QUERY
     WITH ventas_filtradas AS (
         SELECT 
             vb.local_number,
-            -- Obtenemos el nombre del local aquí para no perderlo en la agrupación
             COALESCE((SELECT l.name FROM local l WHERE l.local_number = vb.local_number LIMIT 1), 'SEDE ' || vb.local_number) as nombre_sede_real,
             vb.nombre_turno,
             sd.product_snapshot->>'description' as producto,
-            sd.quantity,
+            -- CANTIDAD: Excluimos solo Serafín (4) y Transferencias Gratuitas
+            (CASE 
+                WHEN vb.id_sale_operation_type = 4 THEN 0
+                ELSE sd.quantity 
+             END)::numeric(12,3) as quantity_filtrada,
+            -- MONTO: Mantiene tu lógica de excluir Consumo Interno (3) y Serafín (4)
             (CASE 
                 WHEN vb.id_sale_operation_type IN (3, 4) THEN 0
                 WHEN COALESCE(vb.transferencia_gratuita, 0) > 0 THEN 0
@@ -29,10 +34,9 @@ BEGIN
             nombre_sede_real,
             COALESCE(nombre_turno, 'TOTAL GENERAL') as grupo_turno,
             producto,
-            SUM(quantity)::numeric(12,3) as cantidad,
+            SUM(quantity_filtrada)::numeric(12,3) as cantidad,
             SUM(subtotal_item)::numeric(12,2) as monto
         FROM ventas_filtradas
-        -- Ahora agrupamos PRIMERO por sede, y luego hacemos el CUBE de turnos/productos
         GROUP BY nombre_sede_real, CUBE(nombre_turno, producto)
         HAVING (nombre_turno IS NOT NULL OR producto IS NOT NULL) 
             OR (nombre_turno IS NULL AND producto IS NULL)
@@ -73,7 +77,6 @@ BEGIN
         FROM formateo_turnos
         GROUP BY nombre_sede_real
     )
-    -- FINAL: Si se pidió una sede, devolvemos el objeto. Si no, devolvemos el array.
     SELECT 
         CASE 
             WHEN p_id_local IS NOT NULL THEN (SELECT reporte_sede FROM sedes_compiladas LIMIT 1)
@@ -81,4 +84,4 @@ BEGIN
         END
     FROM sedes_compiladas;
 END;
-$function$;
+$function$
