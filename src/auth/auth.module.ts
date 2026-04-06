@@ -13,11 +13,8 @@ import { SSemUserModule } from "src/users/user_module.entity";
 @Module({
   imports: [
     PassportModule,
-      TypeOrmModule.forFeature([
-      user_auth, 
-      SSemModule, 
-      SSemUserModule
-    ]),    ConfigModule,
+    TypeOrmModule.forFeature([user_auth, SSemModule, SSemUserModule]),
+    ConfigModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [appConfig.KEY],

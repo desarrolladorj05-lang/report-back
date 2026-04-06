@@ -3,7 +3,7 @@ import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { ConfigType } from "@nestjs/config";
 import { appConfig } from "../config/app.config";
-import { Request } from 'express';
+import { Request } from "express";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -17,12 +17,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         (request: Request) => {
           let token = null;
           if (request && request.cookies) {
-            token = request.cookies['access_token'];
+            token = request.cookies["access_token"];
           }
           return token;
         },
         // Mantenemos esta por si acaso quieres probar con Postman usando Bearer Token
-        ExtractJwt.fromAuthHeaderAsBearerToken(), 
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       ignoreExpiration: false,
       secretOrKey: config.auth.JWT_SECRET,

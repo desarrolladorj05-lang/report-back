@@ -1,54 +1,51 @@
 import {
-	Column,
-	ColumnOptions,
-	CreateDateColumn,
-	UpdateDateColumn,
+  Column,
+  ColumnOptions,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from "typeorm";
 
 export function CreateColumCustom(
-	options: ColumnOptions = {},
+  options: ColumnOptions = {},
 ): PropertyDecorator {
-	return CreateDateColumn({
-		name: "created_at",
-		type: "timestamptz",
-		default: () => "CURRENT_TIMESTAMP",
+  return CreateDateColumn({
+    name: "created_at",
+    type: "timestamptz",
+    default: () => "CURRENT_TIMESTAMP",
 
-		...options,
-	});
+    ...options,
+  });
 }
-
 
 export function UpdateColumCustom(
-	options: ColumnOptions = {},
+  options: ColumnOptions = {},
 ): PropertyDecorator {
-	return UpdateDateColumn({
-		name: "updated_at",
-		type: "timestamptz",
-		nullable: true,
-		...options,
-	});
+  return UpdateDateColumn({
+    name: "updated_at",
+    type: "timestamptz",
+    nullable: true,
+    ...options,
+  });
 }
 
-
-
 export function CreatedByColumCustom(
-	options: ColumnOptions = {},
+  options: ColumnOptions = {},
 ): PropertyDecorator {
-	return Column({
-		name: "created_by",
-		type: "uuid",
-		nullable: true,
-		...options,
-	});
+  return Column({
+    name: "created_by",
+    type: "uuid",
+    nullable: true,
+    ...options,
+  });
 }
 
 export function UpdateByColumCustom(
-	options: ColumnOptions = {},
+  options: ColumnOptions = {},
 ): PropertyDecorator {
-	return Column({
-		name: "updated_by",
-		type: "uuid",
-		nullable: true,
-		...options,
-	});
+  return Column({
+    name: "updated_by",
+    type: "uuid",
+    nullable: true,
+    ...options,
+  });
 }

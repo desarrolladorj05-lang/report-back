@@ -2,7 +2,7 @@ import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { ValidationPipe } from "@nestjs/common";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
-import * as cookieParser from 'cookie-parser';
+import * as cookieParser from "cookie-parser";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,22 +15,16 @@ async function bootstrap() {
     }),
   );
   app.useGlobalFilters(new HttpExceptionFilter());
-
   app.use(cookieParser());
-  
-  // 1. Configuración de CORS dinámica
-  app.enableCors({
-    origin: (origin, callback) => {
 
-      if (!origin || 
-          origin.startsWith("http://localhost") || 
-          origin.startsWith("http://192.168") || 
-          origin === "https://management-report.isi.com.pe") {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+  app.enableCors({
+    origin: [
+      "https://management-report.isi.com.pe",
+      "http://localhost:5173",
+      "http://localhost:3000",
+      // Agrega esta si usas la IP de tu red local a veces
+      /^http:\/\/192\.168\.1\.\d{1,3}:5173$/,
+    ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
     credentials: true,
     allowedHeaders: "Content-Type, Accept, Authorization",
@@ -38,8 +32,13 @@ async function bootstrap() {
 
   const port = process.env.PORT || process.env.API_PORT || 3000;
 
-  await app.listen(port, '0.0.0.0'); 
-  
-  console.log(`API corriendo en red local: http://0.0.0.0:${port}/api`);
+  // GUARDAMOS la instancia del servidor para configurar el tiempo de espera
+  const server = await app.listen(port);
+
+  // ESTA ES LA CLAVE: Aumenta el tiempo que el servidor espera antes de dar el 504
+  // 300,000ms = 5 minutos. Esto ayuda si tus reportes de ventas son pesados.
+  server.setTimeout(300000);
+
+  console.log(`API corriendo en http://localhost:${port}/api`);
 }
 bootstrap();

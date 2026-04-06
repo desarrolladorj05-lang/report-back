@@ -14,7 +14,10 @@ import {
   ReporteCombustiblesSede,
   SaleFuelReportProcedure,
 } from "src/database/procedures-documentation/report_product_sales_by_sede";
-import { ClientReportsProcedure, ReporteDetalleClientesResponse } from "src/database/procedures-documentation/detail_client_report";
+import {
+  ClientReportsProcedure,
+  ReporteDetalleClientesResponse,
+} from "src/database/procedures-documentation/detail_client_report";
 @Injectable()
 export class SalesReportRepository extends BaseRepository<any> {
   getRepository() {
@@ -36,44 +39,48 @@ export class SalesReportRepository extends BaseRepository<any> {
     return reportData as SalesReportResult;
   }
 
-async getReporteVentasBySede(
-  idLocal?: number,
-  fecha?: string,
-): Promise<RespuestaReporteSede[]> {
-  const result = await this.executeProcedure({
-    name: SalesBySedeProcedure.REPORTE_VENTAS_BY_SEDE.name,
-    params: {
-      p_id_local: idLocal ?? null, 
-      p_fecha_busqueda: fecha,
-    },
-  });
-  const rawData = result[0] ? Object.values(result[0])[0] : null;
-  if (!rawData) return [];
-  return Array.isArray(rawData) ? rawData : [rawData as RespuestaReporteSede];
-}
+  async getReporteVentasBySede(
+    idLocal?: number,
+    fecha?: string,
+  ): Promise<RespuestaReporteSede[]> {
+    const result = await this.executeProcedure({
+      name: SalesBySedeProcedure.REPORTE_VENTAS_BY_SEDE.name,
+      params: {
+        p_id_local: idLocal ?? null,
+        p_fecha_busqueda: fecha,
+      },
+    });
+    const rawData = result[0] ? Object.values(result[0])[0] : null;
+    if (!rawData) return [];
+    return Array.isArray(rawData) ? rawData : [rawData as RespuestaReporteSede];
+  }
 
- async getFuelReportBySede(
-  idLocal?: number,
-  fecha?: string,
-): Promise<ReporteCombustiblesSede[]> {
-  const result = await this.executeProcedure({
-    name: SaleFuelReportProcedure.REPORTE_COMBUSTIBLES_BY_SEDE.name,
-    params: {
-      p_id_local: idLocal ?? null,
-      p_fecha_busqueda: fecha,
-    },
-  });
+  async getFuelReportBySede(
+    idLocal?: number,
+    fecha?: string,
+  ): Promise<ReporteCombustiblesSede[]> {
+    const result = await this.executeProcedure({
+      name: SaleFuelReportProcedure.REPORTE_COMBUSTIBLES_BY_SEDE.name,
+      params: {
+        p_id_local: idLocal ?? null,
+        p_fecha_busqueda: fecha,
+      },
+    });
 
-  const rawData = result[0] ? Object.values(result[0])[0] : null;
+    const rawData = result[0] ? Object.values(result[0])[0] : null;
 
-  if (!rawData) return [];
+    if (!rawData) return [];
 
-  // NORMALIZACIÓN: Siempre devolvemos un Array
-  return Array.isArray(rawData) ? rawData : [rawData as ReporteCombustiblesSede];
-}
+    // NORMALIZACIÓN: Siempre devolvemos un Array
+    return Array.isArray(rawData)
+      ? rawData
+      : [rawData as ReporteCombustiblesSede];
+  }
 
-
-  async getAllClientReports(idLocal: number, fecha: string): Promise<ReporteDetalleClientesResponse> {
+  async getAllClientReports(
+    idLocal: number,
+    fecha: string,
+  ): Promise<ReporteDetalleClientesResponse> {
     const result = await this.executeProcedure({
       name: ClientReportsProcedure.GET_ALL_CLIENT_REPORTS.name,
       params: {
@@ -84,13 +91,10 @@ async getReporteVentasBySede(
 
     // Como el SP devuelve RETURNS TABLE (resultado jsonb)
     const firstRow = result[0];
-    
+
     // Extraemos la columna 'resultado'
-    const reportData = firstRow ? firstRow['resultado'] : null;
+    const reportData = firstRow ? firstRow["resultado"] : null;
 
     return reportData as ReporteDetalleClientesResponse;
   }
-
 }
-
-

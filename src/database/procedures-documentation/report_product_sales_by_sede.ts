@@ -34,7 +34,9 @@ export const SaleFuelReportProcedure = {
       p_fecha_busqueda: string;
     }>(),
     // IMPORTANTE: El SP puede devolver una sola sede o un array de sedes
-    returns: defineReturns<ReporteCombustiblesSede | ReporteCombustiblesSede[]>(),
+    returns: defineReturns<
+      ReporteCombustiblesSede | ReporteCombustiblesSede[]
+    >(),
     paramOrder: ["p_id_local", "p_fecha_busqueda"],
   },
 };

@@ -4,7 +4,7 @@ DECLARE
     v_fecha_ayer TEXT;
     v_cash_registers UUID[];
 BEGIN
-    -- 1. IDENTIFICACIÓN DE CAJAS (Dinámico por local o todos)
+    -- 1. IDENTIFICACIÓN DE CAJAS
     SELECT array_agg(cr.id_cash_register) INTO v_cash_registers
     FROM public.cash_register cr
     JOIN public.local l ON cr.id_local = l.id_local 
@@ -33,41 +33,37 @@ BEGIN
           AND fecha_negocio = p_fecha_busqueda
     ),
     recaudacion_data AS (
-    SELECT 
-        l.local_number,
-        ws.shift_name as nombre_turno,
-        COALESCE(pm.name, gp.description, 'OTROS') as concepto,
-        SUM(lg.total_collected)::numeric(10,2) as monto_recaudado
-    FROM public.liquidation_group lg
-    INNER JOIN public.liquidation lq ON lg.id_liquidation = lq.id_liquidation
-    INNER JOIN public.cash_register cr ON lq.id_cash_register = cr.id_cash_register
-    INNER JOIN public.local l ON cr.id_local = l.id_local
-    INNER JOIN public.work_shift ws ON cr.id_work_shift = ws.id_work_shift
-    LEFT JOIN public.payment_method pm ON lg.payment_method_id = pm.id_payment_method
-    LEFT JOIN public.general_param gp ON lg.group_id = gp.table_id
-    WHERE lq.id_cash_register = ANY(v_cash_registers)
-      AND lg.state_audit = 1200001
-    -- Agregamos el COALESCE al GROUP BY
-    GROUP BY l.local_number, ws.shift_name, COALESCE(pm.name, gp.description, 'OTROS')
-    
-    UNION ALL
-    
-    SELECT 
-        l.local_number,
-        'TOTAL GENERAL' as nombre_turno,
-        COALESCE(pm.name, gp.description, 'OTROS') as concepto,
-        SUM(lg.total_collected)::numeric(10,2) as monto_recaudado
-    FROM public.liquidation_group lg
-    INNER JOIN public.liquidation lq ON lg.id_liquidation = lq.id_liquidation
-    INNER JOIN public.cash_register cr ON lq.id_cash_register = cr.id_cash_register
-    INNER JOIN public.local l ON cr.id_local = l.id_local
-    LEFT JOIN public.payment_method pm ON lg.payment_method_id = pm.id_payment_method
-    LEFT JOIN public.general_param gp ON lg.group_id = gp.table_id
-    WHERE lq.id_cash_register = ANY(v_cash_registers)
-      AND lg.state_audit = 1200001
-    -- Agregamos el COALESCE aquí también
-    GROUP BY l.local_number, 2, COALESCE(pm.name, gp.description, 'OTROS')
-),
+        SELECT 
+            l.local_number,
+            ws.shift_name as nombre_turno,
+            COALESCE(pm.name, gp.description, 'OTROS') as concepto,
+            SUM(lg.total_collected)::numeric(10,2) as monto_recaudado
+        FROM public.liquidation_group lg
+        INNER JOIN public.liquidation lq ON lg.id_liquidation = lq.id_liquidation
+        INNER JOIN public.cash_register cr ON lq.id_cash_register = cr.id_cash_register
+        INNER JOIN public.local l ON cr.id_local = l.id_local
+        INNER JOIN public.work_shift ws ON cr.id_work_shift = ws.id_work_shift
+        LEFT JOIN public.payment_method pm ON lg.payment_method_id = pm.id_payment_method
+        LEFT JOIN public.general_param gp ON lg.group_id = gp.table_id
+        WHERE lq.id_cash_register = ANY(v_cash_registers)
+          AND lg.state_audit = 1200001
+        GROUP BY l.local_number, ws.shift_name, COALESCE(pm.name, gp.description, 'OTROS')
+        UNION ALL
+        SELECT 
+            l.local_number,
+            'TOTAL GENERAL' as nombre_turno,
+            COALESCE(pm.name, gp.description, 'OTROS') as concepto,
+            SUM(lg.total_collected)::numeric(10,2) as monto_recaudado
+        FROM public.liquidation_group lg
+        INNER JOIN public.liquidation lq ON lg.id_liquidation = lq.id_liquidation
+        INNER JOIN public.cash_register cr ON lq.id_cash_register = cr.id_cash_register
+        INNER JOIN public.local l ON cr.id_local = l.id_local
+        LEFT JOIN public.payment_method pm ON lg.payment_method_id = pm.id_payment_method
+        LEFT JOIN public.general_param gp ON lg.group_id = gp.table_id
+        WHERE lq.id_cash_register = ANY(v_cash_registers)
+          AND lg.state_audit = 1200001
+        GROUP BY l.local_number, 2, COALESCE(pm.name, gp.description, 'OTROS')
+    ),
     json_recaudo_agrupado AS (
         SELECT 
             local_number,
@@ -94,9 +90,11 @@ BEGIN
             bv.local_number,
             bv.local_nombre_real,
             COALESCE(bv.nombre_turno, 'TOTAL GENERAL') as grupo,
+            -- VENTA SERAFIN (Operación 4)
+            SUM(CASE WHEN id_sale_operation_type = 4 THEN total_amount ELSE 0 END)::numeric(10,2) AS serafin,
+            -- VENTA GENERAL (Bruto total de la vista)
             SUM(total_amount + COALESCE(total_discount, 0) + COALESCE(transferencia_gratuita, 0))::numeric(10,2) as bruto_vista,
             COUNT(DISTINCT bv.id_sale) as total_ventas_count,
-            SUM(CASE WHEN id_sale_operation_type = 4 THEN total_amount ELSE 0 END)::numeric(10,2) AS serafin,
             SUM(CASE WHEN id_sale_operation_type = 3 THEN total_amount ELSE 0 END)::numeric(10,2) AS consumo,
             SUM(transferencia_gratuita)::numeric(10,2) AS gratuita,
             SUM(total_discount)::numeric(10,2) AS descuentos,
@@ -113,14 +111,14 @@ BEGIN
         FROM base_ventas_unificadas bv
         GROUP BY bv.local_number, bv.local_nombre_real, ROLLUP(bv.nombre_turno)
     ),
-    metricas_con_ayer AS (
+    metricas_calculadas AS (
         SELECT 
             m.*,
-            COALESCE(va.monto_ayer, 0) as monto_ayer,
-            CASE 
-                WHEN COALESCE(va.monto_ayer, 0) = 0 THEN 0 
-                ELSE ROUND(((m.bruto_vista - va.monto_ayer) / va.monto_ayer) * 100, 2)
-            END as variacion_calculada
+            -- VENTA BRUTA = Todo - Serafín
+            (m.bruto_vista - m.serafin)::numeric(10,2) as venta_bruta_real,
+            -- VENTA NETA = Venta Bruta - (Consumo + Gratuita + Descuentos)
+            ((m.bruto_vista - m.serafin) - (m.consumo + m.gratuita + m.descuentos))::numeric(10,2) as venta_neta_real,
+            COALESCE(va.monto_ayer, 0) as monto_ayer
         FROM metricas_agrupadas m
         LEFT JOIN ventas_ayer va ON m.local_number = va.idlocal AND m.grupo = va.nombre_turno
     ),
@@ -162,27 +160,33 @@ BEGIN
                 jsonb_build_object(
                     'nombre_bloque', m.grupo,
                     'total_operaciones', m.total_ventas_count,
-                    'variacion', m.variacion_calculada,
+                    'variacion', CASE WHEN m.monto_ayer = 0 THEN 0 ELSE ROUND(((m.venta_bruta_real - m.monto_ayer) / m.monto_ayer) * 100, 2) END,
                     'secciones', jsonb_build_array(
-                        jsonb_build_object('titulo', 'VENTA GENERAL', 'total', TO_CHAR(m.bruto_vista, 'FM999999990.00')),
+                        -- 1. SECCIÓN SERAFÍN (NUEVA PRIORIDAD)
+                        jsonb_build_object('titulo', 'SERAFÍN', 'total', TO_CHAR(m.serafin, 'FM999999990.00')),
+                        
+                        -- 2. VENTA BRUTA (GENERAL - SERAFÍN)
                         jsonb_build_object(
                             'titulo', 'VENTA BRUTA',
-                            'total', TO_CHAR(m.bruto_vista, 'FM999999990.00'),
+                            'total', TO_CHAR(m.venta_bruta_real, 'FM999999990.00'),
                             'detalle', jsonb_build_array(
-                                jsonb_build_object('concepto', 'Serafin', 'monto', TO_CHAR(m.serafin, 'FM999999990.00')),
                                 jsonb_build_object('concepto', 'Consumo Interno', 'monto', TO_CHAR(m.consumo, 'FM999999990.00')),
                                 jsonb_build_object('concepto', 'Transferencia Gratuita', 'monto', TO_CHAR(m.gratuita, 'FM999999990.00')),
                                 jsonb_build_object('concepto', 'Descuentos', 'monto', TO_CHAR(m.descuentos, 'FM999999990.00'))
                             )
                         ),
+                        
+                        -- 3. VENTA NETA (YA NO RESTA SERAFÍN AQUÍ PORQUE YA ESTÁ FUERA)
                         jsonb_build_object(
                             'titulo', 'VENTA NETA',
-                            'total', TO_CHAR(m.bruto_vista - (m.serafin + m.consumo + m.gratuita + m.descuentos), 'FM999999990.00'),
+                            'total', TO_CHAR(m.venta_neta_real, 'FM999999990.00'),
                             'detalle', jsonb_build_array(
-                                jsonb_build_object('concepto', 'Ventas a Credito', 'monto', TO_CHAR(m.credito, 'FM999999990.00')),
+                                jsonb_build_object('concepto', 'Ventas a Crédito', 'monto', TO_CHAR(m.credito, 'FM999999990.00')),
                                 jsonb_build_object('concepto', 'Pago Adelantado', 'monto', TO_CHAR(m.adelanto, 'FM999999990.00'))
                             )
                         ),
+                        
+                        -- 4. VENTA CONTADA
                         jsonb_build_object(
                             'titulo', 'VENTA CONTADA',
                             'total', TO_CHAR(m.venta_contada_esperada, 'FM999999990.00'),
@@ -191,7 +195,7 @@ BEGIN
                         )
                     )
                 ) as reporte_bloque
-            FROM metricas_con_ayer m
+            FROM metricas_calculadas m
             LEFT JOIN metodos_pago_final mp ON m.local_number = mp.local_number AND m.grupo = mp.grupo
             WHERE m.grupo IS NOT NULL
         ) sub

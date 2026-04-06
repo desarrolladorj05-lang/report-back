@@ -7,7 +7,7 @@ import {
 @Entity("user_auth")
 export class user_auth {
   @PrimaryGeneratedColumn("uuid", { name: "id_user" })
-	id: string;
+  id_user: string;
 
   @Column({ name: "username" })
   username: string;

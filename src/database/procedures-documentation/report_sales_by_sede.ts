@@ -6,7 +6,7 @@ import {
 // Detalle genérico para conceptos (Serafín, Consumo) y métodos (Efectivo, Visa)
 export interface DetalleItem {
   concepto?: string; // Usado en Venta Bruta/Neta
-  metodo?: string;   // Usado en Venta Contada
+  metodo?: string; // Usado en Venta Contada
   monto: string;
 }
 
@@ -16,7 +16,7 @@ export interface SeccionReporte {
   total: string;
   detalle?: DetalleItem[];
   // NUEVO: Solo vendrá en "VENTA CONTADA" del "TOTAL GENERAL"
-  recaudado_fisico?: DetalleItem[]; 
+  recaudado_fisico?: DetalleItem[];
 }
 
 // Estructura de cada bloque (Turnos o TOTAL GENERAL)
@@ -39,7 +39,7 @@ export const SalesBySedeProcedure = {
   REPORTE_VENTAS_BY_SEDE: {
     name: "sp_reporte_ventas_by_sede",
     params: defineParams<{
-      p_id_local: number | null; 
+      p_id_local: number | null;
       p_fecha_busqueda: string;
     }>(),
     // El retorno ahora es una Unión de Tipos para ser honestos con el SP

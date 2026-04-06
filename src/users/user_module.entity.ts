@@ -1,15 +1,24 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from "typeorm";
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+} from "typeorm";
 import { user_auth } from "src/users/user.entity";
-import { CreateColumCustom, UpdateColumCustom } from "src/common/typeORM/auditColumns";
+import {
+  CreateColumCustom,
+  UpdateColumCustom,
+} from "src/common/typeORM/auditColumns";
 import { SSemModule } from "./module.entity";
 
 @Entity("s_sem_user_module")
 export class SSemUserModule {
   @PrimaryGeneratedColumn("uuid", { name: "id_module_user" })
-  id: string;
+  id_module_userid: string;
 
   @Column({ name: "user_id" })
-  userId: string;
+  user_id: string;
 
   @Column({ name: "module_id" })
   moduleId: number;
@@ -21,7 +30,7 @@ export class SSemUserModule {
   note: string;
 
   // --- RELACIONES ---
-  
+
   @ManyToOne(() => user_auth)
   @JoinColumn({ name: "user_id" })
   user: user_auth;
@@ -31,7 +40,7 @@ export class SSemUserModule {
   module: SSemModule;
 
   // --- AUDITORÍA ---
-  
+
   @Column({ name: "created_by" })
   createdBy: string;
 

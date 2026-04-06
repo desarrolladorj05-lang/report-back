@@ -1,10 +1,13 @@
 import { Entity, Column, PrimaryGeneratedColumn } from "typeorm";
-import { CreateColumCustom, UpdateColumCustom } from "src/common/typeORM/auditColumns";
+import {
+  CreateColumCustom,
+  UpdateColumCustom,
+} from "src/common/typeORM/auditColumns";
 
 @Entity("s_sem_module")
 export class SSemModule {
   @PrimaryGeneratedColumn("uuid", { name: "id_module" })
-  id: string;
+  id_module: string;
 
   @Column({ name: "module_code", unique: true })
   code: string;
