@@ -3,11 +3,12 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
+import { AuthModule } from "./auth/auth.module";
+import { appConfig } from "./config/app.config";
 import databaseConfig from "./config/database.config";
 import { envValidationSchema } from "./config/env.validation";
 import { SaleReportModule } from "./modules/sales/sales-report.module";
-import { AuthModule } from "./auth/auth.module";
-import { appConfig } from "./config/app.config";
+import { CashPettyReportModule } from "./modules/cash-petty/cash-petty-report.module";
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { appConfig } from "./config/app.config";
       }),
     }),
     SaleReportModule,
+    CashPettyReportModule,
     AuthModule,
   ],
   providers: [
