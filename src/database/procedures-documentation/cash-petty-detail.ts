@@ -27,6 +27,7 @@ export interface CashPettyMovement {
   fecha: string;    // "YYYY-MM-DD"
   created_at: string; 
   updated_at: string | null;
+  status: number;   // Código numérico (40001 | 40002)
   tipo_movimiento: "INCOME" | "EXPENSE";
   tipo: string;     // name de general_param
   entidad: MovementEntity | null;

@@ -54,6 +54,8 @@ BEGIN
             i.document_type_id,
             i.document_number,
 
+            i.status_id,
+
             i.taxable_amount,
             i.igv_amount,
             i.total_amount,
@@ -82,6 +84,8 @@ BEGIN
 
             e.document_type_id,
             e.document_number,
+
+            e.status_id,
 
             e.taxable_amount,
             e.igv_amount,
@@ -130,12 +134,6 @@ BEGIN
         FROM movimientos_enriquecidos m
         LEFT JOIN sale_document_type sdt 
             ON sdt.id_sale_document_type = m.document_type_id
-    ),
-    movimientos_final AS (
-        -- 6. Ordenamiento del movimientos
-        SELECT *
-        FROM movimientos_con_documento m
-        ORDER BY m.date DESC, m.created_at DESC
     )
     SELECT json_build_object(
         'sede', json_build_object(
@@ -180,6 +178,7 @@ BEGIN
                     'updated_at', m.updated_at,
                     'tipo_movimiento', m.tipo_movimiento,
                     'tipo', m.tipo,
+                    'status', m.status_id,
 
                     'entidad', CASE 
                         WHEN m.entidad_id IS NOT NULL THEN json_build_object(
@@ -207,9 +206,9 @@ BEGIN
                     'observaciones', m.observations,
                     'balance', m.balance_after
                 )
-                ORDER BY m.date DESC, m.created_at DESC
+                ORDER BY m.created_at DESC
             )
-            FROM movimientos_final m
+            FROM movimientos_con_documento m
         )
 
     )
