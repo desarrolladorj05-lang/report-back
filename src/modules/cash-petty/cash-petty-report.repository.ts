@@ -14,12 +14,12 @@ export class CashPettyReportRepository extends BaseRepository<any> {
 		super(Object as any, dsFactory);
 	}
 
-	async getCashPettyReport(fechaInicio: string, fechaFin: string): Promise<CashPettyReportResult> {
+	async getCashPettyReport(year: number, month: number): Promise<CashPettyReportResult> {
 		const result = await this.executeProcedure({
 			name: CashPettyReportProcedure.CASH_PETTY_REPORT.name,
 			params: {
-				p_fecha_inicio: fechaInicio,
-				p_fecha_fin: fechaFin,
+				p_year: year,
+				p_month: month,
 			},
 		});
 

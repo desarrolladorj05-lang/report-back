@@ -10,30 +10,20 @@ export class CashPettyReportService {
 
 	constructor(private reportRepository: CashPettyReportRepository) {}
 
-	async getCashPettyReport(fechaInicio: string, fechaFin: string): Promise<CashPettyReportResult> {
-		this.logger.debug(`getCashPettyReport llamado con rango: ${fechaInicio} - ${fechaFin}`);
+	async getCashPettyReport(year: number, month: number): Promise<CashPettyReportResult> {
+		this.logger.debug(`getCashPettyReport llamado con periodo: ${year}-${month}`);
 
-		if (!DateFormatter.isValidFormat(fechaInicio)) {
-			this.logger.warn(`Formato de fecha inválido recibido: ${fechaInicio}`);
-			throw new BadRequestException("Formato inválido en fecha de inicio");
-		}
-
-		if (!DateFormatter.isValidFormat(fechaFin)) {
-			this.logger.warn(`Formato de fecha inválido recibido: ${fechaFin}`);
-			throw new BadRequestException("Formato inválido en fecha de fin");
-		}
 
 		const result = await this.reportRepository.getCashPettyReport(
-			fechaInicio,
-			fechaFin,
+			year,
+			month,
 		);
 
 		if (!result) {
 			this.logger.warn("SP devolvió null en cash petty report");
 
 			return {
-				fecha_inicio: fechaInicio,
-				fecha_fin: fechaFin,
+				periodo: `${year}-${month}`,
 				sedes: [],
 			};
 		}

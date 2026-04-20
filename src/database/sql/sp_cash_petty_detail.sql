@@ -28,6 +28,8 @@ BEGIN
             cpf.replenish_base_amount,
             cpf.replenish_difference,
             cpf.status_id,
+            cpf.created_at,
+            cpf.updated_at,
 
             e.id_employee,
             COALESCE(p.first_name,'') AS first_name,
@@ -40,6 +42,37 @@ BEGIN
         WHERE cpf.id = p_cash_petty_id
     ),
     movimientos_base AS (
+
+        -- 1. APERTURA (movimiento sintético SIEMPRE presente)
+        SELECT
+            c.id AS id,
+            c.open_date AS date,
+
+            'INCOME' AS tipo_movimiento,
+            'Apertura de caja' AS tipo,
+
+            NULL::uuid AS supplier_id,
+            NULL::uuid AS employee_id,
+
+            NULL::integer AS document_type_id,
+            NULL::varchar AS document_number,
+
+            40001 AS status_id,
+
+            c.opening_amount AS taxable_amount,
+            0::numeric AS igv_amount,
+            c.opening_amount AS total_amount,
+
+            'Apertura de caja chica' AS observations,
+            c.opening_amount AS balance_after,
+
+            c.created_at,
+            c.updated_at
+
+        FROM caja c
+
+        UNION ALL
+
         -- 2. INGRESOS
         SELECT
             i.id,
