@@ -12,10 +12,10 @@ export class CashPettyReportController {
 	@UseGuards(JwtAuthGuard)
 	@Get("report")
 	async getManagmentReportSales(@Query() query: CashPettyReportDto) {
-		if (!query.fecha_fin || !query.fecha_inicio) throw new BadRequestException("Fechas obligatorias");
+		if (!query.year || !query.month) throw new BadRequestException("Periodo obligatorio");
 
 		const start = Date.now();
-		const result = await this.reportService.getCashPettyReport(query.fecha_inicio, query.fecha_fin);
+		const result = await this.reportService.getCashPettyReport(query.year, query.month);
 
 		this.logger.log(`[/report] Finalizado en ${Date.now() - start}ms`);
 		return result;

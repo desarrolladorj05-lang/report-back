@@ -1,16 +1,20 @@
-import { Transform } from "class-transformer";
-import { IsNotEmpty, IsString, IsUUID } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { IsNotEmpty, IsNumber, IsString, IsUUID, Max, Min } from "class-validator";
 
 export class CashPettyReportDto {
-  @IsNotEmpty({ message: "La fecha inicio es obligatoria" })
-  @IsString()
-  @Transform(({ value }) => value?.trim())
-  fecha_inicio: string;
+  @Type(() => Number)
+  @IsNumber({}, { message: "El año debe ser numérico" })
+  @Min(2000, { message: "El año mínimo es 2000" })
+  @Max(new Date().getFullYear(), {
+    message: `El año no puede ser mayor a ${new Date().getFullYear()}`,
+  })
+  year: number;
 
-  @IsNotEmpty({ message: "La fecha fin es obligatoria" })
-  @IsString()
-  @Transform(({ value }) => value?.trim())
-  fecha_fin: string;
+  @Type(() => Number)
+  @IsNumber({}, { message: "El mes debe ser numérico" })
+  @Min(1, { message: "El mes mínimo es 1" })
+  @Max(12, { message: "El mes máximo es 12" })
+  month: number;
 }
 
 export class CashPettyDetailDto {

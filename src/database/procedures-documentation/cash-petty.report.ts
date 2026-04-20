@@ -33,8 +33,7 @@ export interface SedePeriodReport {
 
 // 4. Respuesta principal del procedimiento
 export interface CashPettyReportResult {
-  fecha_inicio: string;			// "DD/MM/YYYY"
-  fecha_fin: string;    		// "DD/MM/YYYY"
+  periodo: string;						// "YYYY-MM"
   sedes: SedePeriodReport[];
 }
 
@@ -43,10 +42,10 @@ export const CashPettyReportProcedure = {
   CASH_PETTY_REPORT: {
     name: "sp_cash_petty_first_by_local",
     params: defineParams<{
-      p_fecha_inicio: string; // Formato 'DD/MM/YYYY'
-      p_fecha_fin: string; // Formato 'DD/MM/YYYY'
+      p_year: number;
+      p_month: number;
     }>(),
     returns: defineReturns<CashPettyReportResult>(),
-    paramOrder: ["p_fecha_inicio", "p_fecha_fin"],
+    paramOrder: ["p_year", "p_month"],
   },
 };

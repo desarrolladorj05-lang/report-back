@@ -1,18 +1,31 @@
+-- DROP FUNCTION IF EXISTS public.sp_cash_petty_first_by_local(TEXT, TEXT);
 CREATE OR 
 REPLACE FUNCTION public.sp_cash_petty_first_by_local (
-    p_fecha_inicio TEXT,
-    p_fecha_fin TEXT
+    p_year INT,
+    p_month INT
 )
 RETURNS TABLE (resultado JSON)
 LANGUAGE plpgsql
 AS $function$
 DECLARE
-    v_fecha_inicio_date DATE;
-    v_fecha_fin_date DATE;
+    v_period TEXT;
+    v_current_year INT;
+    v_current_month INT;
 BEGIN
     -- 1. Preparación de fechas
-    v_fecha_inicio_date := to_date(p_fecha_inicio, 'DD/MM/YYYY');
-    v_fecha_fin_date := to_date(p_fecha_fin, 'DD/MM/YYYY');
+    IF p_month < 1 OR p_month > 12 THEN
+        RAISE EXCEPTION 'Mes inválido. Debe estar entre 1 y 12';
+    END IF;
+
+    v_current_year := EXTRACT(YEAR FROM CURRENT_DATE)::INT;
+    v_current_month := EXTRACT(MONTH FROM CURRENT_DATE)::INT;
+
+    IF p_year > v_current_year OR 
+       (p_year = v_current_year AND p_month > v_current_month) THEN
+        RAISE EXCEPTION 'No se puede consultar periodos futuros';
+    END IF;
+
+    v_period := to_char(make_date(p_year, p_month, 1), 'YYYY-MM');
 
     RETURN QUERY
     WITH cajas_filtradas AS (
@@ -23,8 +36,7 @@ BEGIN
                 ORDER BY cpf.created_at DESC
             ) AS rn
         FROM cash_petty_fund cpf
-        WHERE cpf.created_at >= v_fecha_inicio_date
-        AND cpf.created_at < (v_fecha_fin_date + INTERVAL '1 day')
+        WHERE cpf.period = v_period
     ),
     primeras_cajas AS (
         SELECT *
@@ -60,11 +72,11 @@ BEGIN
             COALESCE(l.name, l.local_name, 'SIN NOMBRE') AS local_nombre,
             COALESCE(ol.sort_order, 999) AS prioridad,
             COALESCE(ol.color_hex, '#94a3b8') AS color
-            FROM local l
-            LEFT JOIN order_locals ol 
-                ON ol.local_number = l.local_number
-            WHERE COALESCE(l.local_code, '') <> 'SY01'
-            AND l.is_active = TRUE
+        FROM local l
+        LEFT JOIN order_locals ol 
+            ON ol.local_number = l.local_number
+        WHERE COALESCE(l.local_code, '') <> 'SY01'
+        AND l.is_active = TRUE
     ),
     json_por_sede AS (
         SELECT 
@@ -91,16 +103,15 @@ BEGIN
                     'saldo', d.current_balance,
                     'estado', d.status_id
                 )
+                ORDER BY d.open_date DESC
             ) FILTER (WHERE d.id IS NOT NULL) AS cajas
-
         FROM sedes_base s
         LEFT JOIN data_enriquecida d ON d.local_id = s.id_local
         GROUP BY s.id_local, s.local_nombre, s.prioridad, s.color
     )
 
     SELECT json_build_object(
-        'fecha_inicio', p_fecha_inicio,
-        'fecha_fin', p_fecha_fin,
+        'periodo', v_period,
         'sedes',
         json_agg(
             json_build_object(
