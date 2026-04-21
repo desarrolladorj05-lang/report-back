@@ -75,8 +75,7 @@ BEGIN
         FROM local l
         LEFT JOIN order_locals ol 
             ON ol.local_number = l.local_number
-        WHERE COALESCE(l.local_code, '') <> 'SY01'
-        AND l.is_active = TRUE
+        WHERE l.is_active = TRUE
     ),
     json_por_sede AS (
         SELECT 
