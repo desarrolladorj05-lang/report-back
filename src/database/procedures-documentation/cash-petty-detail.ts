@@ -3,7 +3,7 @@ import { Person } from "./cash-petty.report";
 
 // 1. Entidad del movimiento
 export interface MovementEntity {
-  tipo: "EMPLOYEE" | "SUPPLIER";
+  tipo: "EMPLOYEE" | "SUPPLIER" | "USER";
   id: string;
   nombre: string;
 }
@@ -21,10 +21,15 @@ export interface MovementAmount {
   total: number;
 }
 
+export interface MovementBalance {
+  before: number;
+  after: number;
+}
+
 // 4. Movimiento unificado (ingresos + egresos)
 export interface CashPettyMovement {
   id: string;
-  fecha: string;    // "YYYY-MM-DD"
+  fecha: string;    // "mismo formato que created_at"
   created_at: string; 
   updated_at: string | null;
   status: number;   // Código numérico (40001 | 40002)
@@ -34,7 +39,7 @@ export interface CashPettyMovement {
   documento: MovementDocument | null;
   monto: MovementAmount;
   observaciones: string | null;
-  balance: number;
+  balance: MovementBalance;
 }
 
 // 5. Totales de la caja
