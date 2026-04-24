@@ -37,6 +37,7 @@ BEGIN
             ) AS rn
         FROM cash_petty_fund cpf
         WHERE cpf.period = v_period
+        AND cpf.status_id = 40033 
     ),
     primeras_cajas AS (
         SELECT *
