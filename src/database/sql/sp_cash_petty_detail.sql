@@ -45,12 +45,12 @@ BEGIN
 
     movimientos_base AS (
 
-        -- 1. APERTURA (movimiento sintético)
         SELECT
-            c.id,
-            c.open_date AS date,
+            c.id AS movement_id,
+            c.open_date AS transaction_date,
             c.created_at,
             c.updated_at,
+            0::integer AS movement_order,
 
             'INCOME' AS tipo_movimiento,
             'Apertura de caja' AS tipo,
@@ -74,12 +74,12 @@ BEGIN
 
         UNION ALL
 
-        -- 2. INGRESOS
         SELECT
-            i.id,
-            i.date,
+            i.id AS movement_id,
+            i.date AS transaction_date,
             i.created_at,
             i.updated_at,
+            1::integer AS movement_order,
 
             'INCOME',
             gp.description,
@@ -105,12 +105,12 @@ BEGIN
 
         UNION ALL
 
-        -- 3. EGRESOS
         SELECT
-            e.id,
-            e.date,
+            e.id AS movement_id,
+            e.date AS transaction_date,
             e.created_at,
             e.updated_at,
+            1::integer AS movement_order,
 
             'EXPENSE',
             gp.description,
@@ -135,13 +135,6 @@ BEGIN
         WHERE e.petty_fund_id = p_cash_petty_id
     ),
 
-    movimientos_timeline AS (
-        SELECT
-            m.*,
-            (m.date::timestamp + m.created_at::time) AS fecha_compuesta
-        FROM movimientos_base m
-    ),
-
     movimientos_con_saldo AS (
         SELECT
             m.*,
@@ -152,16 +145,29 @@ BEGIN
                     WHEN m.tipo_movimiento = 'INCOME' THEN m.total_amount
                     ELSE -m.total_amount
                 END
-            ) OVER (ORDER BY m.fecha_compuesta ASC) AS balance_after
+            ) OVER (
+                ORDER BY
+                    m.movement_order,
+                    m.transaction_date,
+                    m.created_at NULLS FIRST,
+                    m.movement_id
+            ) AS balance_after
 
-        FROM movimientos_timeline m
+        FROM movimientos_base m
     ),
 
     movimientos_final AS (
         SELECT
             m.*,
-            LAG(m.balance_after, 1, 0) 
-                OVER (ORDER BY m.fecha_compuesta ASC) AS balance_before
+
+            LAG(m.balance_after, 1, 0::numeric) OVER (
+                ORDER BY
+                    m.movement_order,
+                    m.transaction_date,
+                    m.created_at NULLS FIRST,
+                    m.movement_id
+            ) AS balance_before
+
         FROM movimientos_con_saldo m
     ),
 
@@ -195,13 +201,11 @@ BEGIN
 
     SELECT json_build_object(
 
-        -- SEDE
         'sede', json_build_object(
             'idlocal', c.local_id,
             'local_nombre', COALESCE(c.local_nombre, 'SIN NOMBRE')
         ),
 
-        -- CAJA
         'caja', json_build_object(
             'id', c.id,
             'code', c.code,
@@ -230,13 +234,12 @@ BEGIN
             'estado', c.status_id
         ),
 
-        -- MOVIMIENTOS
         'movimientos',
         (
             SELECT json_agg(
                 json_build_object(
-                    'id', m.id,
-                    'fecha', m.fecha_compuesta,
+                    'id', m.movement_id,
+                    'fecha', m.transaction_date,
                     'created_at', m.created_at,
                     'updated_at', m.updated_at,
                     'status', m.status_id,
@@ -273,7 +276,11 @@ BEGIN
                         'after', m.balance_after
                     )
                 )
-                ORDER BY m.fecha_compuesta DESC
+                ORDER BY
+                    m.movement_order DESC,
+                    m.transaction_date DESC,
+                    m.created_at DESC,
+                    m.movement_id DESC
             )
             FROM movimientos_enriquecidos m
         )

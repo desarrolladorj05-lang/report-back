@@ -40,7 +40,7 @@ export interface CashPettyReportResult {
 // 5. Definición del procedimiento
 export const CashPettyReportProcedure = {
   CASH_PETTY_REPORT: {
-    name: "sp_cash_petty_first_by_local",
+    name: "sp_cash_petty_report_by_period",
     params: defineParams<{
       p_year: number;
       p_month: number;
