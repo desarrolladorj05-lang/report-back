@@ -90,9 +90,11 @@ export class SalesReportService {
   async getAllClientReports(
     idLocal: number,
     fecha: string,
+    idConcepto?: string | number,
+    idTurno?: string | number,
   ): Promise<ReporteDetalleClientesResponse> {
     this.logger.debug(
-      `getAllClientReports llamado con idLocal: ${idLocal}, fecha: ${fecha}`,
+      `getAllClientReports llamado con idLocal: ${idLocal}, fecha: ${fecha} , concepto: ${idConcepto} , turno: ${idTurno}`,
     );
 
     // 1. Validamos los parámetros usando tu helper existente
@@ -102,12 +104,14 @@ export class SalesReportService {
     const result = await this.reportRepository.getAllClientReports(
       idLocal,
       fecha,
+      idConcepto,
+      idTurno,
     );
 
     // 3. Verificamos que tengamos datos (si el SP devuelve null por algún motivo)
     if (!result) {
       this.logger.warn(
-        `getAllClientReports: repositorio devolvió null para idLocal: ${idLocal}, fecha: ${fecha}`,
+        `getAllClientReports: repositorio devolvió null para idLocal: ${idLocal}, fecha: ${fecha} , concepto: ${idConcepto} , turno: ${idTurno}`,
       );
       // Retornamos un objeto con arrays vacíos para que el front no rompa
       return {
@@ -121,7 +125,7 @@ export class SalesReportService {
     }
 
     this.logger.debug(
-      `getAllClientReports completado exitosamente para idLocal: ${idLocal}, fecha: ${fecha}`,
+      `getAllClientReports completado exitosamente para idLocal: ${idLocal}, fecha: ${fecha} , concepto: ${idConcepto}`,
     );
     return result;
   }

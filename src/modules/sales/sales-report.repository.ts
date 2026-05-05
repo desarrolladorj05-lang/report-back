@@ -6,7 +6,6 @@ import {
   SalesReportResult,
 } from "src/database/procedures-documentation/sales-report.procedure";
 import {
-  BloqueReporteSede,
   RespuestaReporteSede,
   SalesBySedeProcedure,
 } from "src/database/procedures-documentation/report_sales_by_sede";
@@ -80,12 +79,16 @@ export class SalesReportRepository extends BaseRepository<any> {
   async getAllClientReports(
     idLocal: number,
     fecha: string,
+    idConcepto?: string | number,
+    idTurno?: string | number,
   ): Promise<ReporteDetalleClientesResponse> {
     const result = await this.executeProcedure({
       name: ClientReportsProcedure.GET_ALL_CLIENT_REPORTS.name,
       params: {
         p_id_local: idLocal,
         p_fecha_busqueda: fecha,
+        p_id_concepto: idConcepto ?? null,
+        p_id_turno: idTurno ?? null,
       },
     });
 

@@ -5,17 +5,17 @@ import {
 
 // Detalle genérico para conceptos (Serafín, Consumo) y métodos (Efectivo, Visa)
 export interface DetalleItem {
+  id?: number | string;
   concepto?: string; // Usado en Venta Bruta/Neta
   metodo?: string; // Usado en Venta Contada
   monto: string;
 }
 
-// Estructura de cada sección (Venta Bruta, Venta Neta, etc.)
+// Estructura de cada secció
 export interface SeccionReporte {
   titulo: string;
   total: string;
   detalle?: DetalleItem[];
-  // NUEVO: Solo vendrá en "VENTA CONTADA" del "TOTAL GENERAL"
   recaudado_fisico?: DetalleItem[];
 }
 

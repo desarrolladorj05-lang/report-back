@@ -69,6 +69,8 @@ export class SalesReportController {
     const result = await this.reportService.getAllClientReports(
       query.id_local,
       query.date,
+      query.id_concepto,
+      query.id_turno,
     );
 
     this.logger.log(
