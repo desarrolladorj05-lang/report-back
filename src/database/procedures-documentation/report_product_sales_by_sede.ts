@@ -8,11 +8,14 @@ export interface ProductoCombustibleDetalle {
   monto: string;
   cantidad: number;
   producto: string;
+  id_producto: number;
+  cantidad_serafin: number;
 }
 
 // Estructura de cada bloque de turno o el Total General
 export interface BloqueReporteCombustible {
   turno: string;
+  id_turno: number | null; // Puede ser null para el bloque de Total General
   total_monto: string;
   total_cantidad: number;
   detalle_productos: ProductoCombustibleDetalle[];
@@ -21,6 +24,7 @@ export interface BloqueReporteCombustible {
 // Estructura raíz de una sede
 export interface ReporteCombustiblesSede {
   nombre_sede: string;
+  color_sede: string;
   categoria: string;
   reporte_por_turnos: BloqueReporteCombustible[];
 }

@@ -1,7 +1,6 @@
-CREATE
-OR REPLACE FUNCTION public.sp_reporte_combustibles_by_sede (
-  p_id_local integer DEFAULT NULL::integer,
-  p_fecha_busqueda text DEFAULT NULL::text
+CREATE OR REPLACE FUNCTION public.sp_reporte_combustibles_by_sede (
+    p_id_local integer DEFAULT NULL::integer,
+    p_fecha_busqueda text DEFAULT NULL::text
 ) RETURNS TABLE (resultado jsonb) LANGUAGE plpgsql AS $function$
 DECLARE
     v_fecha_busqueda_date DATE;
@@ -28,6 +27,15 @@ BEGIN
             vf.local_number,
             COALESCE((SELECT l.name FROM local l WHERE l.local_number = vf.local_number LIMIT 1), 'SEDE ' || vf.local_number) as nombre_sede_real,
             vb.nombre_turno,
+            -- Asignación manual del ID de turno según su nombre
+            CASE 
+                WHEN UPPER(vb.nombre_turno) LIKE '%MAÑANA%' THEN 1
+                WHEN UPPER(vb.nombre_turno) LIKE '%TARDE%' THEN 2
+                WHEN UPPER(vb.nombre_turno) LIKE '%NOCHE%' THEN 3
+                WHEN UPPER(vb.nombre_turno) LIKE '%MADRUGADA%' THEN 4
+                ELSE 99 -- Para turnos no identificados o totales
+            END AS id_turno,
+            (sd.product_snapshot->>'productId')::INT as id_producto,
             sd.product_snapshot->>'description' as producto,
             (CASE WHEN vb.id_sale_operation_type = 4 THEN 0 ELSE sd.quantity END)::numeric(12,3) as quantity_filtrada,
             (CASE WHEN vb.id_sale_operation_type = 4 THEN sd.quantity ELSE 0 END)::numeric(12,3) as quantity_serafin_solo,
@@ -46,13 +54,16 @@ BEGIN
         SELECT 
             local_number,
             nombre_sede_real,
+            id_turno, -- Añadido a las métricas para arrastrarlo al JSON
             COALESCE(nombre_turno, 'TOTAL GENERAL') as grupo_turno,
+            id_producto,
             producto,
             SUM(quantity_filtrada)::numeric(12,3) as cantidad,
             SUM(quantity_serafin_solo)::numeric(12,3) as cantidad_serafin,
             SUM(subtotal_item)::numeric(12,2) as monto
         FROM ventas_filtradas
-        GROUP BY local_number, nombre_sede_real, CUBE(nombre_turno, producto)
+        -- Agrupamos id_turno junto con el nombre_turno para no romper la agregación jerárquica del CUBE
+        GROUP BY local_number, nombre_sede_real, CUBE((id_turno, nombre_turno), (id_producto, producto))
         HAVING (nombre_turno IS NOT NULL OR producto IS NOT NULL) 
             OR (nombre_turno IS NULL AND producto IS NULL)
     ),
@@ -60,9 +71,12 @@ BEGIN
         SELECT 
             local_number,
             nombre_sede_real,
+            -- En caso de ser el TOTAL GENERAL, le asignamos el ID 99 de forma explícita
+            COALESCE(id_turno, 99) as id_turno_formateado,
             grupo_turno,
             jsonb_agg(
                 jsonb_build_object(
+                    'id_producto', id_producto,
                     'producto', producto,
                     'cantidad', cantidad,
                     'cantidad_serafin', cantidad_serafin,
@@ -74,29 +88,31 @@ BEGIN
             MAX(CASE WHEN producto IS NULL THEN cantidad ELSE 0 END) as total_cantidad_turno,
             MAX(CASE WHEN producto IS NULL THEN cantidad_serafin ELSE 0 END) as total_cantidad_serafin_turno
         FROM metricas_agrupadas
-        GROUP BY local_number, nombre_sede_real, grupo_turno
+        GROUP BY local_number, nombre_sede_real, id_turno, grupo_turno
     ),
     sedes_compiladas AS (
         SELECT 
             f.local_number,
             f.nombre_sede_real,
-            ol.color_hex, -- Opcional: incluimos color
+            ol.color_hex,
             jsonb_build_object(
                 'nombre_sede', f.nombre_sede_real,
                 'color_sede', ol.color_hex,
                 'categoria', 'Combustibles',
                 'reporte_por_turnos', jsonb_agg(
                     jsonb_build_object(
+                        'id_turno', f.id_turno_formateado, -- Se inyecta el ID manual del turno aquí
                         'turno', f.grupo_turno,
                         'total_monto', TO_CHAR(f.total_monto_turno, 'FM999999990.00'),
                         'total_cantidad', f.total_cantidad_turno,
                         'total_cantidad_serafin', f.total_cantidad_serafin_turno,
                         'detalle_productos', COALESCE(f.detalle_productos, '[]'::jsonb)
                     )
-                    ORDER BY (f.grupo_turno = 'TOTAL GENERAL'), f.grupo_turno
+                    -- Primero ordenamos para que el "TOTAL GENERAL" quede al final, luego ordenamos por id_turno
+                    ORDER BY (f.grupo_turno = 'TOTAL GENERAL') ASC, f.id_turno_formateado ASC
                 )
             ) as reporte_sede,
-            ol.sort_order -- Usado para el ordenamiento final
+            ol.sort_order
         FROM formateo_turnos f
         LEFT JOIN public.order_locals ol ON f.local_number = ol.local_number
         GROUP BY f.local_number, f.nombre_sede_real, ol.sort_order, ol.color_hex
