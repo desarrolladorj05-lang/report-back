@@ -4,6 +4,7 @@ import { SalesReportProcedure } from "./sales-report.procedure";
 import { ClientReportsProcedure } from "./detail_client_report";
 import { CashPettyReportProcedure } from "./cash-petty.report";
 import { CashPettyDetailProcedure } from "./cash-petty-detail";
+import { ReportContometroByProductProcedure } from "./report_contometer_by_product";
 
 export const procedureRegistry = {
   ...SalesReportProcedure,
@@ -12,6 +13,7 @@ export const procedureRegistry = {
   ...ClientReportsProcedure,
   ...CashPettyReportProcedure,
   ...CashPettyDetailProcedure,
+  ...ReportContometroByProductProcedure,
 } as const;
 
 type ProcedureRegistry = typeof procedureRegistry;

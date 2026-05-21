@@ -26,6 +26,26 @@ export class ReportBySedeDto extends BaseReportDto {
   id_local?: number;
 }
 
+export class ReporteContometroByProductDto extends ReportBySedeDto {
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined || value === "") return undefined;
+    const parsed = parseInt(value, 10);
+    return isNaN(parsed) ? value : parsed;
+  })
+  @IsNumber({}, { message: "El ID del turno debe ser un número" })
+  id_turno?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined || value === "") return undefined;
+    const parsed = parseInt(value, 10);
+    return isNaN(parsed) ? value : parsed;
+  })
+  @IsNumber({}, { message: "El ID del producto debe ser un número" })
+  id_producto?: number;
+}
+
 export class ReporteDetalleClientesDto extends ReportBySedeDto {
   @IsOptional()
   @Transform(({ value }) => {
@@ -51,3 +71,4 @@ export class ManagmentReportDto extends BaseReportDto {}
 export class SalesBySedeDto extends ReportBySedeDto {}
 export class FuelReportBySedeDto extends ReportBySedeDto {}
 export class AllClientReportsDto extends ReporteDetalleClientesDto {}
+export class ContometroByProductDto extends ReporteContometroByProductDto {}

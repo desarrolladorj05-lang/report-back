@@ -17,6 +17,10 @@ import {
   ClientReportsProcedure,
   ReporteDetalleClientesResponse,
 } from "src/database/procedures-documentation/detail_client_report";
+import {
+  ReportContometroByProductProcedure,
+  ReporteContometroResponse,
+} from "src/database/procedures-documentation/report_contometer_by_product";
 @Injectable()
 export class SalesReportRepository extends BaseRepository<any> {
   getRepository() {
@@ -74,6 +78,28 @@ export class SalesReportRepository extends BaseRepository<any> {
     return Array.isArray(rawData)
       ? rawData
       : [rawData as ReporteCombustiblesSede];
+  }
+
+  async getContometroByProduct(
+    idLocal: number,
+    fecha: string,
+    idTurno?: number | null,
+    idProducto?: number | null,
+  ): Promise<ReporteContometroResponse> {
+    const result = await this.executeProcedure({
+      name: ReportContometroByProductProcedure.REPORTE_CONTOMETRO_BY_PRODUCT
+        .name,
+      params: {
+        p_id_local: idLocal,
+        p_fecha_busqueda: fecha,
+        p_id_turno: idTurno ?? null,
+        p_id_producto: idProducto ?? null,
+      },
+    });
+
+    const firstRow = result[0];
+    const reportData = firstRow ? Object.values(firstRow)[0] : null;
+    return reportData as ReporteContometroResponse;
   }
 
   async getAllClientReports(

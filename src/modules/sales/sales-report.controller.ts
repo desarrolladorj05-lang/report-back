@@ -9,6 +9,7 @@ import {
 import { SalesReportService } from "./sales-report.service";
 import {
   AllClientReportsDto,
+  ContometroByProductDto,
   FuelReportBySedeDto,
   ManagmentReportDto,
   SalesBySedeDto,
@@ -59,6 +60,23 @@ export class SalesReportController {
     );
 
     this.logger.log(`[/fuel-by-sede] Finalizado en ${Date.now() - start}ms`);
+    return result;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("contometer-by-product")
+  async getContometroByProduct(@Query() query: ContometroByProductDto) {
+    const start = Date.now();
+    const result = await this.reportService.getContometroByProduct(
+      query.id_local!,
+      query.date,
+      query.id_turno,
+      query.id_producto,
+    );
+
+    this.logger.log(
+      `[/contometro-by-product] Finalizado en ${Date.now() - start}ms`,
+    );
     return result;
   }
 
