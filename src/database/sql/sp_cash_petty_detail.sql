@@ -1,5 +1,4 @@
-CREATE 
-OR REPLACE FUNCTION public.sp_cash_petty_detail (
+CREATE OR REPLACE FUNCTION public.sp_cash_petty_detail (
     p_cash_petty_id UUID
 )
 RETURNS TABLE (resultado JSON)
@@ -45,11 +44,15 @@ BEGIN
 
     movimientos_base AS (
 
+        -- APERTURA
         SELECT
             c.id AS movement_id,
             c.open_date AS transaction_date,
             c.created_at,
             c.updated_at,
+
+            COALESCE(c.created_at, c.updated_at) AS ordering_timestamp,
+
             0::integer AS movement_order,
 
             'INCOME' AS tipo_movimiento,
@@ -74,11 +77,15 @@ BEGIN
 
         UNION ALL
 
+        -- INGRESOS
         SELECT
             i.id AS movement_id,
             i.date AS transaction_date,
             i.created_at,
             i.updated_at,
+
+            COALESCE(i.created_at, i.updated_at) AS ordering_timestamp,
+
             1::integer AS movement_order,
 
             'INCOME',
@@ -100,16 +107,21 @@ BEGIN
             i.observations
 
         FROM cash_petty_income i
-        LEFT JOIN general_param gp ON gp.table_id = i.income_type_id
+        LEFT JOIN general_param gp 
+            ON gp.table_id = i.income_type_id
         WHERE i.petty_fund_id = p_cash_petty_id
 
         UNION ALL
 
+        -- EGRESOS
         SELECT
             e.id AS movement_id,
             e.date AS transaction_date,
             e.created_at,
             e.updated_at,
+
+            COALESCE(e.created_at, e.updated_at) AS ordering_timestamp,
+
             1::integer AS movement_order,
 
             'EXPENSE',
@@ -131,7 +143,8 @@ BEGIN
             e.observations
 
         FROM cash_petty_expense e
-        LEFT JOIN general_param gp ON gp.table_id = e.expense_type_id
+        LEFT JOIN general_param gp 
+            ON gp.table_id = e.expense_type_id
         WHERE e.petty_fund_id = p_cash_petty_id
     ),
 
@@ -142,15 +155,17 @@ BEGIN
             SUM(
                 CASE 
                     WHEN m.status_id <> 40001 THEN 0
-                    WHEN m.tipo_movimiento = 'INCOME' THEN m.total_amount
+                    WHEN m.tipo_movimiento = 'INCOME'
+                        THEN m.total_amount
                     ELSE -m.total_amount
                 END
             ) OVER (
                 ORDER BY
                     m.movement_order,
                     m.transaction_date,
-                    m.created_at NULLS FIRST,
+                    m.ordering_timestamp,
                     m.movement_id
+                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
             ) AS balance_after
 
         FROM movimientos_base m
@@ -164,7 +179,7 @@ BEGIN
                 ORDER BY
                     m.movement_order,
                     m.transaction_date,
-                    m.created_at NULLS FIRST,
+                    m.ordering_timestamp,
                     m.movement_id
             ) AS balance_before
 
@@ -190,11 +205,23 @@ BEGIN
             sdt.name AS documento_tipo
 
         FROM movimientos_final m
-        LEFT JOIN employee emp ON emp.id_employee = m.employee_id
-        LEFT JOIN supplier sup ON sup.id_supplier = m.supplier_id
-        LEFT JOIN user_auth ua ON ua.id_user = m.created_by
+
+        LEFT JOIN employee emp 
+            ON emp.id_employee = m.employee_id
+
+        LEFT JOIN supplier sup 
+            ON sup.id_supplier = m.supplier_id
+
+        LEFT JOIN user_auth ua 
+            ON ua.id_user = m.created_by
+
         LEFT JOIN person p 
-            ON p.id_person = COALESCE(emp.id_employee, sup.id_supplier, ua.id_person)
+            ON p.id_person = COALESCE(
+                emp.id_employee,
+                sup.id_supplier,
+                ua.id_person
+            )
+
         LEFT JOIN sale_document_type sdt 
             ON sdt.id_sale_document_type = m.document_type_id
     )
@@ -246,20 +273,24 @@ BEGIN
                     'tipo_movimiento', m.tipo_movimiento,
                     'tipo', m.tipo,
 
-                    'entidad', CASE 
-                        WHEN m.entidad_id IS NOT NULL THEN json_build_object(
-                            'tipo', m.entidad_tipo,
-                            'id', m.entidad_id,
-                            'nombre', m.entidad_nombre
-                        )
+                    'entidad',
+                    CASE 
+                        WHEN m.entidad_id IS NOT NULL THEN
+                            json_build_object(
+                                'tipo', m.entidad_tipo,
+                                'id', m.entidad_id,
+                                'nombre', m.entidad_nombre
+                            )
                         ELSE NULL
                     END,
 
-                    'documento', CASE 
-                        WHEN m.documento_tipo IS NOT NULL THEN json_build_object(
-                            'tipo', m.documento_tipo,
-                            'numero', m.document_number
-                        )
+                    'documento',
+                    CASE 
+                        WHEN m.documento_tipo IS NOT NULL THEN
+                            json_build_object(
+                                'tipo', m.documento_tipo,
+                                'numero', m.document_number
+                            )
                         ELSE NULL
                     END,
 
@@ -276,10 +307,11 @@ BEGIN
                         'after', m.balance_after
                     )
                 )
+
                 ORDER BY
                     m.movement_order DESC,
                     m.transaction_date DESC,
-                    m.created_at DESC,
+                    m.ordering_timestamp DESC,
                     m.movement_id DESC
             )
             FROM movimientos_enriquecidos m

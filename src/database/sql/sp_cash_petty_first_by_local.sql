@@ -65,7 +65,7 @@ BEGIN
             ON p.id_person = e.id_employee
 
         WHERE cpf.period = v_period
-          AND cpf.status_id = 40033
+            AND cpf.status_id IN (40033, 40013)
     ),
 
     sedes_base AS (
