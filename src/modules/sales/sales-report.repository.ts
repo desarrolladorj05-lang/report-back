@@ -6,7 +6,6 @@ import {
   SalesReportResult,
 } from "src/database/procedures-documentation/sales-report.procedure";
 import {
-  BloqueReporteSede,
   RespuestaReporteSede,
   SalesBySedeProcedure,
 } from "src/database/procedures-documentation/report_sales_by_sede";
@@ -18,6 +17,10 @@ import {
   ClientReportsProcedure,
   ReporteDetalleClientesResponse,
 } from "src/database/procedures-documentation/detail_client_report";
+import {
+  ReportContometroByProductProcedure,
+  ReporteContometroResponse,
+} from "src/database/procedures-documentation/report_contometer_by_product";
 @Injectable()
 export class SalesReportRepository extends BaseRepository<any> {
   getRepository() {
@@ -77,15 +80,41 @@ export class SalesReportRepository extends BaseRepository<any> {
       : [rawData as ReporteCombustiblesSede];
   }
 
+  async getContometroByProduct(
+    idLocal: number,
+    fecha: string,
+    idTurno?: number | null,
+    idProducto?: number | null,
+  ): Promise<ReporteContometroResponse> {
+    const result = await this.executeProcedure({
+      name: ReportContometroByProductProcedure.REPORTE_CONTOMETRO_BY_PRODUCT
+        .name,
+      params: {
+        p_id_local: idLocal,
+        p_fecha_busqueda: fecha,
+        p_id_turno: idTurno ?? null,
+        p_id_producto: idProducto ?? null,
+      },
+    });
+
+    const firstRow = result[0];
+    const reportData = firstRow ? Object.values(firstRow)[0] : null;
+    return reportData as ReporteContometroResponse;
+  }
+
   async getAllClientReports(
     idLocal: number,
     fecha: string,
+    idConcepto?: string | number,
+    idTurno?: string | number,
   ): Promise<ReporteDetalleClientesResponse> {
     const result = await this.executeProcedure({
       name: ClientReportsProcedure.GET_ALL_CLIENT_REPORTS.name,
       params: {
         p_id_local: idLocal,
         p_fecha_busqueda: fecha,
+        p_id_concepto: idConcepto ?? null,
+        p_id_turno: idTurno ?? null,
       },
     });
 

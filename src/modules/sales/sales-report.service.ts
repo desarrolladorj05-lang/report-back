@@ -87,12 +87,61 @@ export class SalesReportService {
     return result;
   }
 
+  async getContometroByProduct(
+    idLocal: number,
+    fecha: string,
+    idTurno?: number,
+    idProducto?: number,
+  ) {
+    this.logger.debug(
+      `getContometroByProduct llamado con idLocal: ${idLocal}, fecha: ${fecha}, idTurno: ${idTurno}, idProducto: ${idProducto}`,
+    );
+
+    if (!idLocal || isNaN(idLocal)) {
+      this.logger.warn(`ID de local inválido recibido: ${idLocal}`);
+      throw new BadRequestException(
+        "El ID del local es obligatorio y debe ser un número",
+      );
+    }
+
+    if (!DateFormatter.isValidFormat(fecha)) {
+      this.logger.warn(`Formato de fecha inválido recibido: ${fecha}`);
+      throw new BadRequestException(
+        "Formato de fecha inválido. Use DD/MM/YYYY",
+      );
+    }
+
+    const result = await this.reportRepository.getContometroByProduct(
+      idLocal,
+      fecha,
+      idTurno,
+      idProducto,
+    );
+
+    this.logger.debug(
+      `getContometroByProduct completado para idLocal: ${idLocal}, fecha: ${fecha}. Productos encontrados: ${result?.productos?.length || 0}`,
+    );
+
+    if (!result || !result.productos || result.productos.length === 0) {
+      this.logger.warn(
+        `No se encontró información de contómetro por producto para idLocal: ${idLocal}, fecha: ${fecha}`,
+      );
+      throw new BadRequestException(
+        "No se encontró información de contómetro por producto para los parámetros especificados",
+      );
+    }
+
+    return result;
+  }
+
   async getAllClientReports(
     idLocal: number,
     fecha: string,
+    idConcepto?: string | number,
+    idTurno?: string | number,
   ): Promise<ReporteDetalleClientesResponse> {
     this.logger.debug(
-      `getAllClientReports llamado con idLocal: ${idLocal}, fecha: ${fecha}`,
+      `getAllClientReports llamado con idLocal: ${idLocal}, fecha: ${fecha} , concepto: ${idConcepto} , turno: ${idTurno}`,
     );
 
     // 1. Validamos los parámetros usando tu helper existente
@@ -102,12 +151,14 @@ export class SalesReportService {
     const result = await this.reportRepository.getAllClientReports(
       idLocal,
       fecha,
+      idConcepto,
+      idTurno,
     );
 
     // 3. Verificamos que tengamos datos (si el SP devuelve null por algún motivo)
     if (!result) {
       this.logger.warn(
-        `getAllClientReports: repositorio devolvió null para idLocal: ${idLocal}, fecha: ${fecha}`,
+        `getAllClientReports: repositorio devolvió null para idLocal: ${idLocal}, fecha: ${fecha} , concepto: ${idConcepto} , turno: ${idTurno}`,
       );
       // Retornamos un objeto con arrays vacíos para que el front no rompa
       return {
@@ -121,7 +172,7 @@ export class SalesReportService {
     }
 
     this.logger.debug(
-      `getAllClientReports completado exitosamente para idLocal: ${idLocal}, fecha: ${fecha}`,
+      `getAllClientReports completado exitosamente para idLocal: ${idLocal}, fecha: ${fecha} , concepto: ${idConcepto}`,
     );
     return result;
   }

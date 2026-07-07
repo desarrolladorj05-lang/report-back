@@ -1,9 +1,9 @@
 import {
   defineParams,
   defineReturns,
-} from "../../common/helpers/procedure.helpers"; // Ajusta la ruta según tu proyecto
+} from "../../common/helpers/procedure.helpers";
 
-// Interfaz base para todas las filas (Créditos, Canjes, etc.)
+// Interfaz base para todas las filas
 export interface ClienteBaseDetalle {
   nro_documento: string;
   nombre_cliente: string;
@@ -11,13 +11,13 @@ export interface ClienteBaseDetalle {
   chofer: string;
   nro_comprobante: string;
   producto: string;
-  cantidad: number;
-  importe: number;
+  cantidad: string;
+  importe: string;
 }
 
-// Interfaz específica para descuentos (incluye la columna extra)
+// Interfaz específica para descuentos
 export interface ClienteDescuentoDetalle extends ClienteBaseDetalle {
-  monto_descuento: number;
+  monto_descuento: string | null;
 }
 
 // Estructura del JSONB que devuelve el SP
@@ -35,10 +35,17 @@ export const ClientReportsProcedure = {
   GET_ALL_CLIENT_REPORTS: {
     name: "sp_get_all_client_reports_by_date",
     params: defineParams<{
-      p_id_local: number;
+      p_id_local: number | null;
       p_fecha_busqueda: string;
+      p_id_concepto?: string | number | null;
+      p_id_turno?: string | number | null;
     }>(),
     returns: defineReturns<ReporteDetalleClientesResponse>(),
-    paramOrder: ["p_id_local", "p_fecha_busqueda"],
+    paramOrder: [
+      "p_id_local",
+      "p_fecha_busqueda",
+      "p_id_concepto",
+      "p_id_turno",
+    ],
   },
 };
