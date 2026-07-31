@@ -17,14 +17,24 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
   app.use(cookieParser());
 
+  const tenantDomain = process.env.TENANT_DOMAIN || "isi.com.pe";
   app.enableCors({
-    origin: [
-      "https://management-report.isi.com.pe",
-      "http://localhost:5173",
-      "http://localhost:3000",
-      // Agrega esta si usas la IP de tu red local a veces
-      /^http:\/\/192\.168\.1\.\d{1,3}:5173$/,
-    ],
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      try {
+        const url = new URL(origin);
+        const isLocal =
+          url.hostname === "localhost" ||
+          /^192\.168\.1\.\d{1,3}$/.test(url.hostname);
+        const isTenant =
+          url.protocol === "https:" &&
+          (url.hostname === tenantDomain ||
+            url.hostname.endsWith(`.${tenantDomain}`));
+        callback(null, isLocal || isTenant);
+      } catch {
+        callback(null, false);
+      }
+    },
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
     credentials: true,
     allowedHeaders: "Content-Type, Accept, Authorization",

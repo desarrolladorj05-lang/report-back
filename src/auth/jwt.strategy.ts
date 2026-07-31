@@ -1,27 +1,21 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { PassportStrategy } from "@nestjs/passport";
-import { ExtractJwt, Strategy } from "passport-jwt";
 import { ConfigType } from "@nestjs/config";
-import { appConfig } from "../config/app.config";
+import { PassportStrategy } from "@nestjs/passport";
 import { Request } from "express";
+import { ExtractJwt, Strategy } from "passport-jwt";
+import { appConfig } from "../config/app.config";
+import { TenantResolverService } from "../config/tenancy/tenant-resolver.service";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     @Inject(appConfig.KEY)
-    private readonly config: ConfigType<typeof appConfig>,
+    config: ConfigType<typeof appConfig>,
+    private readonly tenantResolver: TenantResolverService,
   ) {
     super({
-      // MODIFICACIÓN: Extraer el token de la cookie
       jwtFromRequest: ExtractJwt.fromExtractors([
-        (request: Request) => {
-          let token = null;
-          if (request && request.cookies) {
-            token = request.cookies["access_token"];
-          }
-          return token;
-        },
-        // Mantenemos esta por si acaso quieres probar con Postman usando Bearer Token
+        (request: Request) => request?.cookies?.["access_token"] ?? null,
         ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       ignoreExpiration: false,
@@ -30,7 +24,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    // Esto es lo que se inyectará en req.user
-    return { userId: payload.sub, username: payload.username };
+    if (!payload.tenantId) throw new Error("El token no contiene tenantId.");
+    await this.tenantResolver.resolveById(payload.tenantId);
+    return {
+      userId: payload.sub,
+      username: payload.username,
+      tenantId: payload.tenantId,
+      modules: payload.modules || [],
+    };
   }
 }

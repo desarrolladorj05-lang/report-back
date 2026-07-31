@@ -1,80 +1,86 @@
 import {
-  Controller,
-  Post,
   Body,
-  UseGuards,
+  Controller,
   Get,
+  Post,
+  Req,
   Request,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
-import { Response } from "express"; // Importación esencial
+import { Request as ExpressRequest, Response } from "express";
 import { AuthService } from "./auth.service";
-import { JwtAuthGuard } from "./jwt.auth.guard";
-import { LoginDto } from "./dto/login.dto";4
+import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
+import { JwtAuthGuard } from "./jwt.auth.guard";
 
 @Controller("auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // MANTENEMOS TUS INTENTOS: 4 intentos cada 20 minutos
-  @Throttle({ default: { limit: 4100, ttl: 1200000 } })
+  @Throttle({ default: { limit: 4, ttl: 1200000 } })
   @Post("login")
   async login(
     @Body() loginDto: LoginDto,
-    @Res({ passthrough: true }) response: Response, // Agregamos el objeto Response
+    @Req() request: ExpressRequest,
+    @Res({ passthrough: true }) response: Response,
   ) {
     const user = await this.authService.validateUser(
       loginDto.username,
       loginDto.password,
+      this.getClientOrigin(request),
     );
-
-    if (!user) {
-      // Usamos UnauthorizedException para que Nest maneje el error correctamente
-      throw new UnauthorizedException("Credenciales inválidas.");
-    }
+    if (!user) throw new UnauthorizedException("Credenciales invalidas.");
 
     const accessToken = this.authService.generateAccessToken(user);
-
-    // CONFIGURAMOS LA COOKIE
     response.cookie("access_token", accessToken, {
-      httpOnly: true, // Protege contra XSS (el front no puede leer el token)
-      secure: false, // Cambiar a true solo en producción (HTTPS)
-      sameSite: "lax", // Protección básica contra CSRF
-      maxAge: 3600000, // 1 hora de vida (en milisegundos)
-      path: "/", // Disponible en toda la aplicación
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 3600000,
+      path: "/",
     });
-
-    // Retornamos algo sencillo, el navegador ya guardó la cookie
     return {
       message: "Login exitoso",
-      user: { username: user.username },
+      user: {
+        username: user.username,
+        alias: user.alias,
+        tenantId: user.tenantId,
+        modules: user.modules,
+      },
     };
   }
 
-  // MANTENEMOS TUS INTENTOS: 5 registros por hora
   @Throttle({ default: { limit: 5, ttl: 3600000 } })
   @Post("register")
-  async register(@Body() registerDto: RegisterDto) {
+  register(@Body() registerDto: RegisterDto, @Req() request: ExpressRequest) {
     return this.authService.register(
       registerDto.username,
       registerDto.password,
+      this.getClientOrigin(request),
     );
   }
 
   @Post("logout")
-  async logout(@Res({ passthrough: true }) response: Response) {
-    // Borramos la cookie para cerrar sesión
-    response.clearCookie("access_token");
-    return { message: "Sesión cerrada" };
+  logout(@Res({ passthrough: true }) response: Response) {
+    response.clearCookie("access_token", { path: "/" });
+    return { message: "Sesion cerrada" };
   }
 
   @UseGuards(JwtAuthGuard)
   @Get("profile")
-  getProfile(@Request() req) {
-    // Gracias al PassportStrategy actualizado, aquí tendrás el usuario
-    return req.user;
+  getProfile(@Request() request) {
+    return request.user;
+  }
+
+  private getClientOrigin(request: ExpressRequest): string | undefined {
+    return (
+      request.get("origin") ??
+      request.get("referer") ??
+      request.get("x-client-origin") ??
+      undefined
+    );
   }
 }

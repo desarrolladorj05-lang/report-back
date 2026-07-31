@@ -9,6 +9,7 @@ import databaseConfig from "./config/database.config";
 import { envValidationSchema } from "./config/env.validation";
 import { SaleReportModule } from "./modules/sales/sales-report.module";
 import { CashPettyReportModule } from "./modules/cash-petty/cash-petty-report.module";
+import { TenancyModule } from "./config/tenancy/tenancy.module";
 
 @Module({
   imports: [
@@ -34,26 +35,27 @@ import { CashPettyReportModule } from "./modules/cash-petty/cash-petty-report.mo
         ...configService.get("database"),
         // CONFIGURACIÓN CRÍTICA PARA EVITAR EL ERROR 500 Y TLS
         extra: {
-          // CONEXIONES 
-          max: 20,         // Límite máximo de conexiones 
-          min: 2,          // Mantiene 2 siempre abiertas (evita lag en la primera petición)
-          
+          // CONEXIONES
+          max: 20, // Límite máximo de conexiones
+          min: 2, // Mantiene 2 siempre abiertas (evita lag en la primera petición)
+
           // CIERRE DE INACTIVAS: Mata conexiones IDLE tras 10 segundos
-          idleTimeoutMillis: 10000, 
-          
+          idleTimeoutMillis: 10000,
+
           // VIDA MÁXIMA: Recicla conexiones cada hora (evita fugas de memoria)
-          maxLifetimeMillis: 3600000, 
-          
+          maxLifetimeMillis: 3600000,
+
           // --- SEGURIDAD Y TIMEOUTS ---
           connectionTimeoutMillis: 2000, // Error rápido si la BD no responde en 2s
-          statement_timeout: 60000,      // Cancela cualquier query que pase de 1 minuto
+          statement_timeout: 60000, // Cancela cualquier query que pase de 1 minuto
         },
-        retryAttempts: 2,      // Menos reintentos para no bloquear el arranque
+        retryAttempts: 2, // Menos reintentos para no bloquear el arranque
         retryDelay: 3000,
         keepConnectionAlive: true,
         autoLoadEntities: true,
       }),
     }),
+    TenancyModule,
     SaleReportModule,
     CashPettyReportModule,
     AuthModule,
@@ -65,4 +67,4 @@ import { CashPettyReportModule } from "./modules/cash-petty/cash-petty-report.mo
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}
