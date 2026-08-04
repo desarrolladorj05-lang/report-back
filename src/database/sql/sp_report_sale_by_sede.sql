@@ -1,5 +1,4 @@
-CREATE
-OR REPLACE FUNCTION public.sp_reporte_ventas_by_sede (p_id_local integer, p_fecha_busqueda text) RETURNS TABLE (resultado jsonb) LANGUAGE plpgsql AS $function$
+CREATE OR REPLACE FUNCTION public.sp_reporte_ventas_by_sede (p_id_local integer, p_fecha_busqueda text) RETURNS TABLE (resultado jsonb) LANGUAGE plpgsql AS $function$
 DECLARE
     v_fecha_ayer_text TEXT;
     v_fecha_ayer_date DATE;
@@ -16,8 +15,8 @@ BEGIN
     JOIN public.work_shift ws ON cr.id_work_shift = ws.id_work_shift
     LEFT JOIN public.work_shift ws_ref ON l.id_local = ws_ref.id_local AND ws_ref.shift_name = 'MAÑANA'
     WHERE (p_id_local IS NULL OR l.local_number = p_id_local)
-    AND cr.state_audit = 1200001
-    AND (
+        AND cr.state_audit = 1200001
+        AND (
         CASE
             WHEN ws.shift_name = 'MAÑANA' THEN 
                 to_char((cr.opennig_date AT TIME ZONE 'America/Lima'), 'DD/MM/YYYY')
@@ -26,27 +25,36 @@ BEGIN
             ELSE 
                 to_char((cr.opennig_date AT TIME ZONE 'America/Lima'), 'DD/MM/YYYY')
         END
-    ) = p_fecha_busqueda;
+        ) = p_fecha_busqueda;
 
     RETURN QUERY
     WITH base_ventas_unificadas AS (
-        SELECT * FROM vw_reporte_ventas_base
-        WHERE state = 40001 
+    SELECT *
+    FROM vw_reporte_ventas_base
+    WHERE state = 40001
         AND (p_id_local IS NULL OR local_number = p_id_local)
         AND fecha_negocio = p_fecha_busqueda
-    ),
+        AND NOT (
+            COALESCE(id_sale_operation_type, 0) = 6
+            AND COALESCE(id_sale_document_type, 0) IN (1, 2)
+        )
+),
     -- CALCULO DE AYER USANDO LA MISMA VISTA Y FORMULA
     ayer_data_calculada AS (
         SELECT 
             local_number,
             COALESCE(nombre_turno, 'TOTAL GENERAL') as grupo_ayer,
             (SUM(total_amount) - 
-            SUM(CASE WHEN id_sale_operation_type IN (3,4,5,6) THEN total_amount ELSE 0 END)
+            SUM(CASE WHEN id_sale_operation_type IN (3,4,5,6,8) THEN total_amount ELSE 0 END)
             )::numeric(15,2) as monto_ayer
         FROM vw_reporte_ventas_base
-        WHERE state = 40001 
-        AND (p_id_local IS NULL OR local_number = p_id_local)
-        AND fecha_negocio = v_fecha_ayer_text
+            WHERE state = 40001
+            AND (p_id_local IS NULL OR local_number = p_id_local)
+            AND fecha_negocio = v_fecha_ayer_text
+            AND NOT (
+                COALESCE(id_sale_operation_type, 0) = 6
+                AND COALESCE(id_sale_document_type, 0) IN (1, 2)
+            )
         GROUP BY local_number, ROLLUP(nombre_turno)
     ),
     metricas_agrupadas AS (
@@ -61,12 +69,13 @@ BEGIN
             END) AS id_work_shift,
             COALESCE(bv.nombre_turno, 'TOTAL GENERAL') as grupo,
             (SUM(total_amount) - 
-            SUM(CASE WHEN id_sale_operation_type IN (3,4,5,6) THEN total_amount ELSE 0 END)
+            SUM(CASE WHEN id_sale_operation_type IN (3,4,5,6,8) THEN total_amount ELSE 0 END)
             )::numeric(15,2) as venta_neta_real,
             SUM(CASE WHEN id_sale_operation_type = 4 THEN total_amount ELSE 0 END)::numeric(10,2) AS serafin,
             SUM(total_amount + COALESCE(total_discount, 0) + COALESCE(transferencia_gratuita, 0))::numeric(10,2) as bruto_vista,
             COUNT(DISTINCT bv.id_sale) as total_ventas_count,
             SUM(CASE WHEN id_sale_operation_type = 3 THEN total_amount ELSE 0 END)::numeric(10,2) AS consumo,
+            SUM(CASE WHEN id_sale_operation_type = 8 THEN total_amount ELSE 0 END)::numeric(10,2) AS traslado_interno,
             SUM(transferencia_gratuita)::numeric(10,2) AS gratuita,
             SUM(total_discount)::numeric(10,2) AS descuentos,
             (SUM(CASE WHEN id_sale_document_type IN (1,2) AND id_sale_operation_type = 2 THEN outstanding_balance ELSE 0 END) + 
@@ -74,10 +83,10 @@ BEGIN
             (SUM(CASE WHEN id_sale_document_type = 3 AND id_sale_operation_type = 7 THEN total_amount ELSE 0 END) + 
             SUM(applied_advance_amount))::numeric(10,2) AS adelanto,
             (SUM(total_amount) 
-            - SUM(CASE WHEN id_sale_operation_type IN (3,4) THEN total_amount ELSE 0 END) 
-            - (SUM(CASE WHEN id_sale_document_type IN (1,2) AND id_sale_operation_type = 2 THEN outstanding_balance ELSE 0 END) + 
+                - SUM(CASE WHEN id_sale_operation_type IN (3,4,8) THEN total_amount ELSE 0 END)
+                - (SUM(CASE WHEN id_sale_document_type IN (1,2) AND id_sale_operation_type = 2 THEN outstanding_balance ELSE 0 END) + 
                 SUM(CASE WHEN id_sale_document_type = 3 AND id_sale_operation_type = 2 THEN total_amount ELSE 0 END))
-            - (SUM(CASE WHEN id_sale_document_type = 3 AND id_sale_operation_type = 7 THEN total_amount ELSE 0 END))
+                - (SUM(CASE WHEN id_sale_document_type = 3 AND id_sale_operation_type = 7 THEN total_amount ELSE 0 END))
             )::numeric(10,2) as venta_contada_esperada
         FROM base_ventas_unificadas bv
         GROUP BY bv.local_number, bv.local_nombre_real, ROLLUP(bv.nombre_turno)
@@ -109,14 +118,14 @@ BEGIN
     ),
     json_recaudo_agrupado AS (
         SELECT local_number, nombre_turno, 
-            jsonb_agg(jsonb_build_object('metodo', concepto, 'monto', TO_CHAR(monto_recaudado, 'FM999999990.00'))) as lista
+                jsonb_agg(jsonb_build_object('metodo', concepto, 'monto', TO_CHAR(monto_recaudado, 'FM999999990.00'))) as lista
         FROM recaudacion_data GROUP BY 1, 2
     ),
     pre_pagos_agrupados AS (
         SELECT bv.local_number, COALESCE(bv.nombre_turno, 'TOTAL GENERAL') as grupo_pago, vpd.metodo_nombre as metodo, SUM(vpd.amount) as monto_total
         FROM base_ventas_unificadas bv
         INNER JOIN vw_reporte_pagos_detalle vpd ON bv.id_sale = vpd.id_sale
-        WHERE bv.id_sale_operation_type NOT IN (3,4) AND bv.transferencia_gratuita = 0 AND vpd.payment_state = 40001
+        WHERE bv.id_sale_operation_type NOT IN (3,4,8) AND bv.transferencia_gratuita = 0 AND vpd.payment_state = 40001
         GROUP BY bv.local_number, ROLLUP(bv.nombre_turno), vpd.metodo_nombre
     ),
     metodos_pago_final AS (
@@ -142,6 +151,7 @@ BEGIN
                     jsonb_build_object('titulo', 'VENTA BRUTA', 'total', TO_CHAR(ma.bruto_vista - ma.serafin, 'FM999999990.00'),
                         'detalle', jsonb_build_array(
                             jsonb_build_object('id', 3, 'concepto', 'Consumo Interno', 'monto', TO_CHAR(ma.consumo, 'FM999999990.00')),
+                            jsonb_build_object('id', 8, 'concepto', 'Traslado Interno', 'monto', TO_CHAR(ma.traslado_interno, 'FM999999990.00')),
                             jsonb_build_object('id', 5, 'concepto', 'Transferencia Gratuita', 'monto', TO_CHAR(ma.gratuita, 'FM999999990.00')),
                             jsonb_build_object('id', 0,'concepto', 'Descuentos', 'monto', TO_CHAR(ma.descuentos, 'FM999999990.00'))
                         )

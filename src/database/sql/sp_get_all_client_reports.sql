@@ -78,6 +78,10 @@ BEGIN
         SELECT jsonb_agg(fila_data - 'monto_descuento' ORDER BY created_at) as lista 
         FROM base_datos WHERE id_sale_operation_type = 3 AND (p_id_concepto IS NULL OR p_id_concepto = 3)
     ),
+    seccion_traslado_interno AS (
+        SELECT jsonb_agg(fila_data - 'monto_descuento' ORDER BY created_at) as lista
+        FROM base_datos WHERE id_sale_operation_type = 8 AND (p_id_concepto IS NULL OR p_id_concepto = 8)
+    ),
     seccion_canje AS (
         SELECT jsonb_agg(fila_data - 'monto_descuento' ORDER BY created_at) as lista 
         FROM base_datos WHERE id_sale_operation_type = 6 AND (p_id_concepto IS NULL OR p_id_concepto = 6)
@@ -88,6 +92,7 @@ BEGIN
         'creditos', COALESCE((SELECT lista FROM seccion_creditos), '[]'::jsonb),
         'adelantos', COALESCE((SELECT lista FROM seccion_adelantos), '[]'::jsonb),
         'consumo_interno', COALESCE((SELECT lista FROM seccion_interno), '[]'::jsonb),
+        'traslados_internos', COALESCE((SELECT lista FROM seccion_traslado_interno), '[]'::jsonb),
         'canjes', COALESCE((SELECT lista FROM seccion_canje), '[]'::jsonb)
     );
 END;
