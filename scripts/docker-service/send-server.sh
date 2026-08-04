@@ -8,7 +8,7 @@ IMAGE_NAME="${IMAGE_NAME:-backend-reports-isi}"
 IMAGE_TAR="${IMAGE_TAR:-$PROJECT_ROOT/${IMAGE_NAME}.tar}"
 ENV_FILE="${ENV_FILE:-$PROJECT_ROOT/.env.production}"
 SCRIPTS_DIR="${SCRIPTS_DIR:-$PROJECT_ROOT/scripts/docker-service}"
-TARGET="${TARGET:-isi:/home/ubuntu/proyects/backend-reports-isi}"
+TARGET="${TARGET:-IsiGlobal:/home/ubuntu/proyects/backend-reports-isi}"
 SSH_OPTS="${SSH_OPTS:--o StrictHostKeyChecking=accept-new}"
 
 if [[ ! -f "$IMAGE_TAR" ]]; then
@@ -33,11 +33,17 @@ REMOTE_SCRIPTS_DIR="$TARGET_DIR/scripts"
 echo "[SYNC] Creando carpeta remota si no existe: $TARGET_DIR"
 ssh $SSH_OPTS "$TARGET_HOST" "mkdir -p '$TARGET_DIR' '$REMOTE_SCRIPTS_DIR'"
 
-echo "[SYNC] Enviando imagen y .env.production al servidor..."
-rsync -avz --progress -e "ssh $SSH_OPTS" "$IMAGE_TAR" "$ENV_FILE" "$TARGET"
+if command -v rsync >/dev/null 2>&1; then
+  echo "[SYNC] Enviando imagen y .env.production al servidor con rsync..."
+  rsync -avz --progress -e "ssh $SSH_OPTS" "$IMAGE_TAR" "$ENV_FILE" "$TARGET"
 
-echo "[SYNC] Enviando scripts al servidor..."
-rsync -avz --progress -e "ssh $SSH_OPTS" "$SCRIPTS_DIR/" "$TARGET_HOST:$REMOTE_SCRIPTS_DIR/"
+  echo "[SYNC] Enviando scripts al servidor con rsync..."
+  rsync -avz --progress -e "ssh $SSH_OPTS" "$SCRIPTS_DIR/" "$TARGET_HOST:$REMOTE_SCRIPTS_DIR/"
+else
+  echo "[SYNC] rsync no esta disponible; usando scp..."
+  scp $SSH_OPTS "$IMAGE_TAR" "$ENV_FILE" "$TARGET_HOST:$TARGET_DIR/"
+  scp $SSH_OPTS -r "$SCRIPTS_DIR/." "$TARGET_HOST:$REMOTE_SCRIPTS_DIR/"
+fi
 ssh $SSH_OPTS "$TARGET_HOST" "chmod +x '$REMOTE_SCRIPTS_DIR/'*.sh"
 
 echo "[SYNC] Archivos enviados correctamente."

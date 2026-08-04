@@ -9,6 +9,7 @@ export const envValidationSchema = Joi.object({
   DB_SSL: Joi.string().default("false"),
   DEV_TENANT_ID: Joi.string().uuid().optional(),
   DEV_TENANT_DB: Joi.string().optional(),
+  FIXED_TENANT_DB: Joi.string().optional(),
   TENANT_DOMAIN: Joi.string().default("isi.com.pe"),
   TENANT_CACHE_MAX: Joi.number().integer().positive().default(100),
   TENANT_POOL_SIZE: Joi.number().integer().positive().default(15),

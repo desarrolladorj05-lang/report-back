@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
+import { ILike } from "typeorm";
 import { TenantDataSourceFactory } from "src/config/tenancy/tenant-ds.factory";
 import { TenantResolverService } from "src/config/tenancy/tenant-resolver.service";
 import { user_auth } from "src/users/user.entity";
@@ -25,22 +26,17 @@ export class AuthService {
     const userModuleRepository = dataSource.getRepository(SSemUserModule);
 
     const user = await userRepository.findOne({
-      where: { username: username.trim().toLowerCase(), is_active: true },
+      where: { username: ILike(username.trim()), is_active: true },
       select: [
         "id_user",
         "username",
         "password",
         "alias",
         "is_active",
-        "tenant_id",
       ],
     });
 
-    if (
-      !user ||
-      (user.tenant_id && user.tenant_id !== tenant.id) ||
-      !(await bcrypt.compare(password, user.password))
-    ) {
+    if (!user || !(await bcrypt.compare(password, user.password))) {
       return null;
     }
 

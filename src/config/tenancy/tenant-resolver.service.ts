@@ -23,6 +23,22 @@ export class TenantResolverService {
   ) {}
 
   async resolveForLogin(clientOrigin?: string): Promise<ResolvedTenant> {
+    const fixedTenantDb = process.env.FIXED_TENANT_DB?.trim();
+    if (fixedTenantDb) {
+      const tenant = await this.tenantRepository.findOne({
+        where: { dbName: fixedTenantDb, isActive: true },
+        select: ["id", "dbName"],
+      });
+
+      if (!tenant) {
+        throw new UnauthorizedException(
+          `El tenant fijo '${fixedTenantDb}' no existe o esta inactivo.`,
+        );
+      }
+
+      return this.apply(tenant);
+    }
+
     if (process.env.NODE_ENV !== "production") {
       const id = process.env.DEV_TENANT_ID;
       const dbName = process.env.DEV_TENANT_DB;
