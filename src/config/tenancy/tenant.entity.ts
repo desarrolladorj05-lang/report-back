@@ -5,7 +5,7 @@ export class Tenant {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ name: "dbName" })
+  @Column({ name: "db_name" })
   dbName: string;
 
   @Column({ nullable: true })
@@ -14,6 +14,6 @@ export class Tenant {
   @Column({ nullable: true })
   subdomain: string | null;
 
-  @Column({ name: "isActive", default: true })
+  @Column({ name: "is_active", default: true })
   isActive: boolean;
 }

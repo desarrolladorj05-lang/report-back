@@ -7,6 +7,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { parse } from "tldts";
 import { Repository } from "typeorm";
 import { Tenant } from "./tenant.entity";
+import { TenantUrl } from "./tenant-url.entity";
 import { TenancyContextService } from "./tenancy.context";
 
 export interface ResolvedTenant {
@@ -19,6 +20,8 @@ export class TenantResolverService {
   constructor(
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
+    @InjectRepository(TenantUrl)
+    private readonly tenantUrlRepository: Repository<TenantUrl>,
     private readonly context: TenancyContextService,
   ) {}
 
@@ -56,10 +59,17 @@ export class TenantResolverService {
       throw new UnauthorizedException("Tenant no autorizado.");
     }
 
+    const domain = parsed.domain.toLowerCase();
+    const subdomain = parsed.subdomain.toLowerCase();
+    const tenantUrl = await this.tenantUrlRepository.findOne({
+      where: { domain, subdomain },
+    });
+    if (tenantUrl?.tenant?.isActive) return this.apply(tenantUrl.tenant);
+
     const tenant = await this.tenantRepository.findOne({
       where: {
-        domain: parsed.domain,
-        subdomain: parsed.subdomain,
+        domain,
+        subdomain,
         isActive: true,
       },
       select: ["id", "dbName"],

@@ -5,6 +5,7 @@ import { TenantConnectionManager } from "./tenant-connection-manager.service";
 import { TenantDataSourceFactory } from "./tenant-ds.factory";
 import { TenantResolverService } from "./tenant-resolver.service";
 import { Tenant } from "./tenant.entity";
+import { TenantUrl } from "./tenant-url.entity";
 import { TenancyContextService } from "./tenancy.context";
 
 @Global()
@@ -14,7 +15,7 @@ import { TenancyContextService } from "./tenancy.context";
       global: true,
       middleware: { mount: true },
     }),
-    TypeOrmModule.forFeature([Tenant]),
+    TypeOrmModule.forFeature([Tenant, TenantUrl]),
   ],
   providers: [
     TenancyContextService,
