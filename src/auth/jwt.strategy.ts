@@ -25,11 +25,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     if (!payload.tenantId) throw new Error("El token no contiene tenantId.");
-    await this.tenantResolver.resolveById(payload.tenantId);
+    const tenant = await this.tenantResolver.resolveById(payload.tenantId);
     return {
       userId: payload.sub,
       username: payload.username,
       tenantId: payload.tenantId,
+      tenantDbName: tenant.dbName,
       modules: payload.modules || [],
     };
   }
