@@ -37,4 +37,25 @@ export class ProductStockDashboardService {
       recentMovements: data?.recentMovements ?? [],
     };
   }
+
+  async getKardex(
+    dateFrom: string,
+    dateTo: string,
+    productId: number,
+    page: number,
+    pageSize: number,
+  ) {
+    const startedAt = Date.now();
+    const result = await this.repository.getKardex(
+      dateFrom,
+      dateTo,
+      productId,
+      page,
+      pageSize,
+    );
+    this.logger.debug(
+      `Kardex del producto ${productId} completado en ${Date.now() - startedAt}ms: página ${result.page}, ${result.rows.length}/${result.total} filas`,
+    );
+    return result;
+  }
 }

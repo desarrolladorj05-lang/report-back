@@ -26,4 +26,38 @@ export class ProductStockDashboardRepository extends BaseRepository<any> {
       | ProductStockDashboardProcedureResult
       | undefined;
   }
+
+  async getKardex(
+    dateFrom: string,
+    dateTo: string,
+    productId: number,
+    page: number,
+    pageSize: number,
+  ) {
+    const rows = await this.executeProcedure({
+      name: ProductStockDashboardProcedure.PRODUCT_KARDEX.name,
+      params: {
+        p_date_from: dateFrom,
+        p_date_to: dateTo,
+        p_product_id: productId,
+        p_page: page,
+        p_page_size: pageSize,
+      },
+    });
+    const first = rows[0];
+    const result = first
+      ? (Object.values(first)[0] as {
+          page?: number;
+          pageSize?: number;
+          total?: number;
+          rows?: unknown[];
+        })
+      : undefined;
+    return {
+      page: result?.page ?? page,
+      pageSize: result?.pageSize ?? pageSize,
+      total: result?.total ?? 0,
+      rows: result?.rows ?? [],
+    };
+  }
 }

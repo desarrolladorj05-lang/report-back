@@ -23,4 +23,16 @@ export class ProductStockDashboardController {
     );
     return result;
   }
+
+  @Get("kardex")
+  async getKardex(@Query() query: ProductStockDashboardDto) {
+    if (!query.productId) return [];
+    return this.service.getKardex(
+      query.dateFrom,
+      query.dateTo,
+      query.productId,
+      query.page ?? 1,
+      query.pageSize ?? 100,
+    );
+  }
 }
