@@ -10,6 +10,8 @@ import { envValidationSchema } from "./config/env.validation";
 import { SaleReportModule } from "./modules/sales/sales-report.module";
 import { CashPettyReportModule } from "./modules/cash-petty/cash-petty-report.module";
 import { TenancyModule } from "./config/tenancy/tenancy.module";
+import { LiquidationDashboardModule } from "./modules/liquidation/liquidation-dashboard.module";
+import { ProductStockDashboardModule } from "./modules/products/product-stock-dashboard.module";
 
 @Module({
   imports: [
@@ -58,6 +60,8 @@ import { TenancyModule } from "./config/tenancy/tenancy.module";
     TenancyModule,
     SaleReportModule,
     CashPettyReportModule,
+    LiquidationDashboardModule,
+    ProductStockDashboardModule,
     AuthModule,
   ],
   providers: [
