@@ -3,6 +3,7 @@ import { TenantDataSourceFactory } from "src/config/tenancy/tenant-ds.factory";
 import {
   ProductStockDashboardProcedure,
   ProductStockDashboardProcedureResult,
+  FuelStockReportProcedureRow,
 } from "src/database/procedures-documentation/product-stock-dashboard";
 import { BaseRepository } from "src/database/repositories/base.repository";
 
@@ -59,5 +60,18 @@ export class ProductStockDashboardRepository extends BaseRepository<any> {
       total: result?.total ?? 0,
       rows: result?.rows ?? [],
     };
+  }
+
+  async getFuelStock(dateFrom: string, dateTo: string) {
+    return this.executeProcedure({
+      name: ProductStockDashboardProcedure.FUEL_STOCK_REPORT.name,
+      params: {
+        p_created_from: dateFrom,
+        p_created_to: dateTo,
+        p_local_ids: null,
+        p_warehouse_ids: null,
+        p_product_ids: null,
+      },
+    }) as Promise<FuelStockReportProcedureRow[]>;
   }
 }

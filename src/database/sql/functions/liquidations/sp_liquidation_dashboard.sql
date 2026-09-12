@@ -20,6 +20,7 @@ WITH scope AS MATERIALIZED (
       ELSE (cr.opennig_date AT TIME ZONE 'America/Lima')::date
     END AS business_date,
     loc.local_number,
+    loc.id_local,
     COALESCE(loc.local_name, loc.name, 'Sede ' || loc.local_number) AS local_name,
     COALESCE(ol.color_hex, '#94a3b8') AS local_color,
     COALESCE(ol.sort_order, 999) AS local_sort_order,
@@ -150,6 +151,87 @@ method_data AS (
   GROUP BY 1
   HAVING COALESCE(SUM(lr.total_collected), 0) > 0
 ),
+reconciliation_collected AS (
+  SELECT
+    sc.business_date,
+    sc.local_number,
+    sc.local_name,
+    COALESCE(SUM(lr.total_collected) FILTER (WHERE pm.payment_code = '00001'), 0)::numeric AS cash_collected,
+    COALESCE(SUM(lr.total_collected) FILTER (WHERE pm.payment_code = '00002'), 0)::numeric AS card_collected
+  FROM liquidation_rows lr
+  INNER JOIN scope sc ON sc.id_cash_register = lr.id_cash_register
+  INNER JOIN public.payment_method pm ON pm.id_payment_method = lr.payment_method_id
+  WHERE pm.payment_code IN ('00001', '00002')
+  GROUP BY sc.business_date, sc.local_number, sc.local_name
+),
+reconciliation_deposited AS (
+  SELECT
+    dr.period::date AS business_date,
+    loc.local_number,
+    COALESCE(loc.local_name, loc.name, 'Sede ' || loc.local_number) AS local_name,
+    COALESCE(MAX(dr.total_amount_closed), 0)::numeric AS accounting_total,
+    COALESCE(
+      SUM(bddr.total_deposit_amount) FILTER (WHERE bd.id_bank_deposit IS NOT NULL),
+      0
+    )::numeric AS deposited
+  FROM public.daily_report dr
+  INNER JOIN public.local loc ON loc.id_local = dr.id_local
+  LEFT JOIN public.bank_deposit_daily_report bddr
+    ON bddr.daily_report_id = dr.id_daily_report
+  LEFT JOIN public.bank_deposit bd
+    ON bd.id_bank_deposit = bddr.bank_deposit_id
+    AND bd.state_audit = 1200001
+  WHERE dr.state_audit = 1200001
+    AND dr.period BETWEEN p_date_from AND p_date_to
+    AND (p_local_number IS NULL OR loc.local_number = p_local_number)
+  GROUP BY dr.period::date, loc.local_number, loc.local_name, loc.name
+),
+reconciliation_locations AS (
+  SELECT
+    COALESCE(c.business_date, d.business_date) AS business_date,
+    COALESCE(c.local_number, d.local_number)::int AS local_number,
+    COALESCE(c.local_name, d.local_name) AS local_name,
+    COALESCE(c.cash_collected, 0)::float AS cash_collected,
+    COALESCE(c.card_collected, 0)::float AS card_collected,
+    COALESCE(d.accounting_total, 0)::float AS accounting_total,
+    COALESCE(d.deposited, 0)::float AS deposited
+  FROM reconciliation_collected c
+  FULL OUTER JOIN reconciliation_deposited d
+    ON d.business_date = c.business_date AND d.local_number = c.local_number
+),
+reconciliation_totals AS (
+  SELECT
+    business_date,
+    SUM(cash_collected)::float AS cash_collected,
+    SUM(card_collected)::float AS card_collected,
+    SUM(accounting_total)::float AS accounting_total,
+    SUM(deposited)::float AS deposited,
+    jsonb_agg(jsonb_build_object(
+      'localNumber', local_number,
+      'localName', local_name,
+      'cashCollected', cash_collected,
+      'cardCollected', card_collected,
+      'accountingTotal', accounting_total,
+      'deposited', deposited
+    ) ORDER BY local_name) AS locations
+  FROM reconciliation_locations
+  GROUP BY business_date
+),
+reconciliation_daily AS (
+  SELECT
+    TO_CHAR(days.business_date, 'YYYY-MM-DD') AS date,
+    COALESCE(r.cash_collected, 0)::float AS cash_collected,
+    COALESCE(r.card_collected, 0)::float AS card_collected,
+    COALESCE(r.accounting_total, 0)::float AS accounting_total,
+    COALESCE(r.deposited, 0)::float AS deposited,
+    COALESCE(r.locations, '[]'::jsonb) AS locations
+  FROM generate_series(
+    p_date_from::date,
+    p_date_to::date,
+    interval '1 day'
+  ) AS days(business_date)
+  LEFT JOIN reconciliation_totals r ON r.business_date = days.business_date
+),
 location_data AS (
   SELECT
     local_number::int AS local_number,
@@ -208,6 +290,8 @@ SELECT jsonb_build_object(
     COALESCE((SELECT jsonb_agg(to_jsonb(d) ORDER BY d.date) FROM daily_data d), '[]'::jsonb) END,
   'methods', CASE WHEN p_include_details THEN '[]'::jsonb ELSE
     COALESCE((SELECT jsonb_agg(to_jsonb(m) ORDER BY m.collected DESC) FROM method_data m), '[]'::jsonb) END,
+  'depositReconciliation', CASE WHEN p_include_details THEN '[]'::jsonb ELSE
+    COALESCE((SELECT jsonb_agg(to_jsonb(r) ORDER BY r.date DESC) FROM reconciliation_daily r), '[]'::jsonb) END,
   'locations', CASE WHEN p_include_details THEN '[]'::jsonb ELSE
     COALESCE((SELECT jsonb_agg(to_jsonb(l) ORDER BY l.sort_order, l.name) FROM location_data l), '[]'::jsonb) END,
   'rankings', CASE WHEN p_include_details THEN '{}'::jsonb ELSE jsonb_build_object(
@@ -218,23 +302,4 @@ SELECT jsonb_build_object(
     COALESCE((SELECT jsonb_agg(to_jsonb(c) ORDER BY c.date DESC, c.location, c.id) FROM cash_data c), '[]'::jsonb)
     ELSE '[]'::jsonb END
 ) AS resultado;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.sp_liquidation_cash_registers(
-  p_date_from text,
-  p_date_to text,
-  p_local_number integer
-) RETURNS TABLE (resultado jsonb)
-LANGUAGE sql
-STABLE
-AS $function$
-  SELECT jsonb_build_object(
-    'cashRegisters', COALESCE(d.resultado->'cashRegisters', '[]'::jsonb)
-  )
-  FROM public.sp_liquidation_dashboard(
-    p_date_from,
-    p_date_to,
-    p_local_number,
-    true
-  ) d;
 $function$;
