@@ -1,7 +1,7 @@
--- Run once per tenant database with autocommit enabled.
+-- Run once per tenant database. This statement is transaction-compatible.
 -- This is complementary to idx_movement_product_fuel_stock_active_local_product_effective:
 -- that index starts with id_local; this one supports ranges across every location.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_movement_product_stock_dashboard_effective
+CREATE INDEX IF NOT EXISTS idx_movement_product_stock_dashboard_effective
   ON public.movement_product (
     (COALESCE(effective_at, created_at)),
     id_local,
