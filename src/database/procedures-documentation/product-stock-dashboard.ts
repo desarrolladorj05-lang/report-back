@@ -19,6 +19,30 @@ export interface ProductKardexProcedureResult {
   rows: Record<string, unknown>[];
 }
 
+export interface FuelStockReportProcedureRow {
+  local_id: string;
+  local_name: string;
+  warehouse_id: string;
+  warehouse_name: string;
+  tank_name: string;
+  product_id: number;
+  product_name: string;
+  rows:
+    | Array<{
+        date: string;
+        stockInitial: number;
+        income: number;
+        internalConsumption: number;
+        warehouseTransfer: number;
+        sales: number;
+        externalSales: number;
+        stockTheoretical: number;
+        stockPhysical: number;
+        differenceDay: number;
+      }>
+    | string;
+}
+
 export const ProductStockDashboardProcedure = {
   PRODUCT_STOCK_DASHBOARD: {
     name: "sp_product_stock_dashboard",
@@ -46,6 +70,24 @@ export const ProductStockDashboardProcedure = {
       "p_product_id",
       "p_page",
       "p_page_size",
+    ],
+  },
+  FUEL_STOCK_REPORT: {
+    name: "get_fuel_stock_detailed_groups",
+    params: defineParams<{
+      p_created_from: string;
+      p_created_to: string;
+      p_local_ids: string[] | null;
+      p_warehouse_ids: string[] | null;
+      p_product_ids: number[] | null;
+    }>(),
+    returns: defineReturns<FuelStockReportProcedureRow>(),
+    paramOrder: [
+      "p_created_from",
+      "p_created_to",
+      "p_local_ids",
+      "p_warehouse_ids",
+      "p_product_ids",
     ],
   },
 };

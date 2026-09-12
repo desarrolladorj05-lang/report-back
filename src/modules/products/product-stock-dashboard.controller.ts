@@ -35,4 +35,17 @@ export class ProductStockDashboardController {
       query.pageSize ?? 100,
     );
   }
+
+  @Get("fuel-stock")
+  async getFuelStock(@Query() query: ProductStockDashboardDto) {
+    const startedAt = Date.now();
+    const result = await this.service.getFuelStock(
+      query.dateFrom,
+      query.dateTo,
+    );
+    this.logger.log(
+      `[/report/products/fuel-stock] Finalizado en ${Date.now() - startedAt}ms`,
+    );
+    return result;
+  }
 }
