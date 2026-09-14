@@ -68,7 +68,11 @@ WITH scope AS MATERIALIZED (
     AND (p_local_number IS NULL OR loc.local_number = p_local_number)
 ),
 sales_by_cash AS (
-  SELECT sc.id_cash_register, COALESCE(SUM(p.amount), 0)::numeric AS total_sales
+  SELECT
+    sc.id_cash_register,
+    COALESCE(SUM(p.amount), 0)::numeric AS total_sales,
+    COALESCE(SUM(p.amount) FILTER (WHERE p.id_payment_method = 1), 0)::numeric AS cash_sales,
+    COALESCE(SUM(p.amount) FILTER (WHERE p.id_payment_method = 2), 0)::numeric AS card_sales
   FROM scope sc
   INNER JOIN public.sale s ON s.id_cash_register = sc.id_cash_register
     AND s.state = 40001 AND s.state_audit = 1200001
@@ -90,6 +94,17 @@ other_income_by_cash AS (
     AND d.code_deposit_type = '0004'
   GROUP BY sc.id_cash_register
 ),
+latest_liquidation AS MATERIALIZED (
+  SELECT DISTINCT ON (liq.id_cash_register)
+    liq.id_cash_register,
+    liq.id_liquidation
+  FROM scope sc
+  INNER JOIN public.liquidation liq
+    ON liq.id_cash_register = sc.id_cash_register
+    AND liq.state_audit = 1200001
+  ORDER BY liq.id_cash_register, liq.created_at DESC NULLS LAST,
+    liq.id_liquidation DESC
+),
 liquidation_rows AS MATERIALIZED (
   SELECT
     sc.id_cash_register,
@@ -99,8 +114,8 @@ liquidation_rows AS MATERIALIZED (
     lg.payment_method_id,
     lg.group_id
   FROM scope sc
-  INNER JOIN public.liquidation liq ON liq.id_cash_register = sc.id_cash_register
-    AND liq.state_audit = 1200001
+  INNER JOIN latest_liquidation liq
+    ON liq.id_cash_register = sc.id_cash_register
   INNER JOIN public.liquidation_group lg ON lg.id_liquidation = liq.id_liquidation
     AND lg.state_audit = 1200001
 ),
@@ -151,68 +166,73 @@ method_data AS (
   GROUP BY 1
   HAVING COALESCE(SUM(lr.total_collected), 0) > 0
 ),
-reconciliation_collected AS (
+reconciliation_cash_registers AS (
   SELECT
+    sc.id_cash_register,
+    sc.cash_register_code,
     sc.business_date,
     sc.local_number,
     sc.local_name,
-    COALESCE(SUM(lr.total_collected) FILTER (WHERE pm.payment_code = '00001'), 0)::numeric AS cash_collected,
-    COALESCE(SUM(lr.total_collected) FILTER (WHERE pm.payment_code = '00002'), 0)::numeric AS card_collected
+    sc.responsible,
+    COALESCE(SUM(lr.total_collected) FILTER (WHERE UPPER(gp.abbreviation) = 'CASH'), 0)::numeric AS cash_collected,
+    COALESCE(SUM(lr.total_collected) FILTER (WHERE UPPER(gp.abbreviation) = 'CARD'), 0)::numeric AS card_collected,
+    COALESCE(MAX(s.cash_sales), 0)::numeric AS cash_deposited,
+    COALESCE(MAX(s.card_sales), 0)::numeric AS card_deposited,
+    (COALESCE(MAX(s.cash_sales), 0) + COALESCE(MAX(s.card_sales), 0))::numeric AS deposited,
+    CASE
+      WHEN ABS(COALESCE(MAX(s.cash_sales), 0) + COALESCE(MAX(s.card_sales), 0)) >= 0.01 THEN 1
+      ELSE 0
+    END::int AS deposit_count
   FROM liquidation_rows lr
   INNER JOIN scope sc ON sc.id_cash_register = lr.id_cash_register
-  INNER JOIN public.payment_method pm ON pm.id_payment_method = lr.payment_method_id
-  WHERE pm.payment_code IN ('00001', '00002')
-  GROUP BY sc.business_date, sc.local_number, sc.local_name
-),
-reconciliation_deposited AS (
-  SELECT
-    dr.period::date AS business_date,
-    loc.local_number,
-    COALESCE(loc.local_name, loc.name, 'Sede ' || loc.local_number) AS local_name,
-    COALESCE(MAX(dr.total_amount_closed), 0)::numeric AS accounting_total,
-    COALESCE(
-      SUM(bddr.total_deposit_amount) FILTER (WHERE bd.id_bank_deposit IS NOT NULL),
-      0
-    )::numeric AS deposited
-  FROM public.daily_report dr
-  INNER JOIN public.local loc ON loc.id_local = dr.id_local
-  LEFT JOIN public.bank_deposit_daily_report bddr
-    ON bddr.daily_report_id = dr.id_daily_report
-  LEFT JOIN public.bank_deposit bd
-    ON bd.id_bank_deposit = bddr.bank_deposit_id
-    AND bd.state_audit = 1200001
-  WHERE dr.state_audit = 1200001
-    AND dr.period BETWEEN p_date_from AND p_date_to
-    AND (p_local_number IS NULL OR loc.local_number = p_local_number)
-  GROUP BY dr.period::date, loc.local_number, loc.local_name, loc.name
+  LEFT JOIN sales_by_cash s ON s.id_cash_register = sc.id_cash_register
+  INNER JOIN public.general_param gp
+    ON gp.table_id = lr.group_id
+    AND gp.parent_group_id = 1930000
+    AND gp.is_active = TRUE
+    AND gp.state_audit = 1200001
+  WHERE UPPER(gp.abbreviation) IN ('CASH', 'CARD')
+  GROUP BY sc.id_cash_register, sc.cash_register_code, sc.business_date,
+    sc.local_number, sc.local_name, sc.responsible
 ),
 reconciliation_locations AS (
   SELECT
-    COALESCE(c.business_date, d.business_date) AS business_date,
-    COALESCE(c.local_number, d.local_number)::int AS local_number,
-    COALESCE(c.local_name, d.local_name) AS local_name,
-    COALESCE(c.cash_collected, 0)::float AS cash_collected,
-    COALESCE(c.card_collected, 0)::float AS card_collected,
-    COALESCE(d.accounting_total, 0)::float AS accounting_total,
-    COALESCE(d.deposited, 0)::float AS deposited
-  FROM reconciliation_collected c
-  FULL OUTER JOIN reconciliation_deposited d
-    ON d.business_date = c.business_date AND d.local_number = c.local_number
+    business_date,
+    local_number,
+    local_name,
+    SUM(cash_collected)::float AS cash_collected,
+    SUM(card_collected)::float AS card_collected,
+    SUM(deposited)::float AS deposited,
+    SUM(deposit_count)::int AS deposit_count,
+    jsonb_agg(jsonb_build_object(
+      'id', id_cash_register,
+      'cashRegisterCode', cash_register_code,
+      'responsible', responsible,
+      'cashCollected', cash_collected,
+      'cardCollected', card_collected,
+      'cashDeposited', cash_deposited,
+      'cardDeposited', card_deposited,
+      'deposited', deposited,
+      'depositCount', deposit_count
+    ) ORDER BY cash_register_code) AS cash_registers
+  FROM reconciliation_cash_registers
+  GROUP BY business_date, local_number, local_name
 ),
 reconciliation_totals AS (
   SELECT
     business_date,
     SUM(cash_collected)::float AS cash_collected,
     SUM(card_collected)::float AS card_collected,
-    SUM(accounting_total)::float AS accounting_total,
     SUM(deposited)::float AS deposited,
+    SUM(deposit_count)::int AS deposit_count,
     jsonb_agg(jsonb_build_object(
       'localNumber', local_number,
       'localName', local_name,
       'cashCollected', cash_collected,
       'cardCollected', card_collected,
-      'accountingTotal', accounting_total,
-      'deposited', deposited
+      'deposited', deposited,
+      'depositCount', deposit_count,
+      'cashRegisters', cash_registers
     ) ORDER BY local_name) AS locations
   FROM reconciliation_locations
   GROUP BY business_date
@@ -222,8 +242,8 @@ reconciliation_daily AS (
     TO_CHAR(days.business_date, 'YYYY-MM-DD') AS date,
     COALESCE(r.cash_collected, 0)::float AS cash_collected,
     COALESCE(r.card_collected, 0)::float AS card_collected,
-    COALESCE(r.accounting_total, 0)::float AS accounting_total,
     COALESCE(r.deposited, 0)::float AS deposited,
+    COALESCE(r.deposit_count, 0)::int AS deposit_count,
     COALESCE(r.locations, '[]'::jsonb) AS locations
   FROM generate_series(
     p_date_from::date,
