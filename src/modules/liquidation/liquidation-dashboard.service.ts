@@ -46,7 +46,7 @@ export class LiquidationDashboardService {
           return result;
         }),
       this.repository
-        .getDashboard(previousDateFrom, previousDateTo, localNumber)
+        .getPeriodTotals(previousDateFrom, previousDateTo, localNumber)
         .then((result) => {
           this.logger.debug(
             `Consulta periodo anterior (${previousDateFrom} a ${previousDateTo}) completada en ${Date.now() - previousStart}ms`,
@@ -76,7 +76,14 @@ export class LiquidationDashboardService {
         },
       );
     const totals = summarize(data.locations);
-    const previousTotals = summarize(previousData.locations);
+    const previousTotals = {
+      totalToRender: number(previousData.total_to_render),
+      totalCollected: number(previousData.total_collected),
+      difference: number(previousData.difference),
+      liquidationCount: number(previousData.liquidation_count),
+      compliantCount: number(previousData.compliant_count),
+      pendingCount: number(previousData.pending_count),
+    };
     const percentageChange = (current: number, previous: number) => {
       if (previous === 0) return current === 0 ? 0 : 100;
       return ((current - previous) / Math.abs(previous)) * 100;
@@ -143,6 +150,85 @@ export class LiquidationDashboardService {
           percentage: collected ? (number(row.collected) / collected) * 100 : 0,
         }))
         .filter((method) => Number(method.percentage.toFixed(1)) > 0),
+      depositReconciliation: data.depositReconciliation.map((row) => {
+        const cashCollected = number(row.cash_collected);
+        const cardCollected = number(row.card_collected);
+        const totalCollected = cashCollected + cardCollected;
+        const depositedAmount = number(row.deposited);
+        const depositCount = number(row.deposit_count);
+        const difference = totalCollected - depositedAmount;
+        return {
+          date: String(row.date),
+          cashCollected,
+          cardCollected,
+          totalCollected,
+          deposited: depositedAmount,
+          depositCount,
+          difference,
+          status:
+            depositCount <= 0
+              ? ("PENDING" as const)
+              : Math.abs(depositedAmount - totalCollected) < 0.01
+                ? ("DEPOSITED" as const)
+                : ("PARTIAL" as const),
+          locations: (row.locations ?? []).map((location) => {
+            const locationCash = number(location.cashCollected);
+            const locationCard = number(location.cardCollected);
+            const locationTotal = locationCash + locationCard;
+            const locationDeposited = number(location.deposited);
+            const locationDepositCount = number(location.depositCount);
+            return {
+              localNumber: number(location.localNumber),
+              localName: location.localName,
+              cashCollected: locationCash,
+              cardCollected: locationCard,
+              totalCollected: locationTotal,
+              deposited: locationDeposited,
+              depositCount: locationDepositCount,
+              difference: locationTotal - locationDeposited,
+              cashRegisters: (location.cashRegisters ?? []).map(
+                (cashRegister) => {
+                  const cash = number(cashRegister.cashCollected);
+                  const card = number(cashRegister.cardCollected);
+                  const cashRegisterCollected = cash + card;
+                  const cashDeposited = number(cashRegister.cashDeposited);
+                  const cardDeposited = number(cashRegister.cardDeposited);
+                  const cashRegisterDeposited = number(
+                    cashRegister.deposited,
+                  );
+                  const cashRegisterDepositCount = number(
+                    cashRegister.depositCount,
+                  );
+                  return {
+                    id: String(cashRegister.id),
+                    cashRegisterCode: number(
+                      cashRegister.cashRegisterCode,
+                    ),
+                    responsible: cashRegister.responsible,
+                    cashCollected: cash,
+                    cardCollected: card,
+                    totalCollected: cashRegisterCollected,
+                    cashDeposited,
+                    cardDeposited,
+                    deposited: cashRegisterDeposited,
+                    depositCount: cashRegisterDepositCount,
+                    difference:
+                      cashRegisterCollected - cashRegisterDeposited,
+                    status:
+                      cashRegisterDepositCount <= 0
+                        ? ("PENDING" as const)
+                        : Math.abs(
+                              cashRegisterDeposited - cashRegisterCollected,
+                            ) < 0.01
+                          ? ("DEPOSITED" as const)
+                          : ("PARTIAL" as const),
+                  };
+                },
+              ),
+            };
+          }),
+        };
+      }),
       locations: data.locations.map((row) => ({
         localNumber: number(row.local_number),
         name: row.name,

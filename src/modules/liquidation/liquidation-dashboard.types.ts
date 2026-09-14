@@ -38,6 +38,7 @@ export interface LiquidationDashboardResponse {
     difference: number;
     percentage: number;
   }>;
+  depositReconciliation: LiquidationDepositReconciliation[];
   locations: Array<{
     localNumber: number;
     name: string;
@@ -54,6 +55,41 @@ export interface LiquidationDashboardResponse {
     locations: LiquidationRankingItem[];
     responsibles: LiquidationRankingItem[];
   };
+}
+
+export interface LiquidationDepositReconciliation {
+  date: string;
+  cashCollected: number;
+  cardCollected: number;
+  totalCollected: number;
+  deposited: number;
+  depositCount: number;
+  difference: number;
+  status: "DEPOSITED" | "PARTIAL" | "PENDING";
+  locations: Array<{
+    localNumber: number;
+    localName: string;
+    cashCollected: number;
+    cardCollected: number;
+    totalCollected: number;
+    deposited: number;
+    depositCount: number;
+    difference: number;
+    cashRegisters: Array<{
+      id: string;
+      cashRegisterCode: number;
+      responsible: string;
+      cashCollected: number;
+      cardCollected: number;
+      totalCollected: number;
+      cashDeposited: number;
+      cardDeposited: number;
+      deposited: number;
+      depositCount: number;
+      difference: number;
+      status: "DEPOSITED" | "PARTIAL" | "PENDING";
+    }>;
+  }>;
 }
 
 export interface LiquidationRankingItem {

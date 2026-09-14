@@ -17,6 +17,32 @@ export interface LiquidationDashboardProcedureResult {
     deposited: number;
     difference: number;
   }>;
+  depositReconciliation: Array<{
+    date: string;
+    cash_collected: number;
+    card_collected: number;
+    deposited: number;
+    deposit_count: number;
+    locations: Array<{
+      localNumber: number;
+      localName: string;
+      cashCollected: number;
+      cardCollected: number;
+      deposited: number;
+      depositCount: number;
+      cashRegisters: Array<{
+        id: string;
+        cashRegisterCode: number;
+        responsible: string;
+        cashCollected: number;
+        cardCollected: number;
+        cashDeposited: number;
+        cardDeposited: number;
+        deposited: number;
+        depositCount: number;
+      }>;
+    }>;
+  }>;
   locations: Array<{
     local_number: number;
     name: string;
@@ -54,6 +80,15 @@ export interface LiquidationRankingProcedureRow {
   amount: number;
 }
 
+export interface LiquidationPeriodTotalsProcedureResult {
+  total_to_render: number;
+  total_collected: number;
+  difference: number;
+  liquidation_count: number;
+  compliant_count: number;
+  pending_count: number;
+}
+
 export const LiquidationDashboardProcedure = {
   LIQUIDATION_DASHBOARD: {
     name: "sp_liquidation_dashboard",
@@ -82,6 +117,16 @@ export const LiquidationDashboardProcedure = {
       defineReturns<
         Pick<LiquidationDashboardProcedureResult, "cashRegisters">
       >(),
+    paramOrder: ["p_date_from", "p_date_to", "p_local_number"],
+  },
+  LIQUIDATION_PERIOD_TOTALS: {
+    name: "sp_liquidation_period_totals",
+    params: defineParams<{
+      p_date_from: string;
+      p_date_to: string;
+      p_local_number: number | null;
+    }>(),
+    returns: defineReturns<LiquidationPeriodTotalsProcedureResult>(),
     paramOrder: ["p_date_from", "p_date_to", "p_local_number"],
   },
 };
