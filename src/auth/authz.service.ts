@@ -26,6 +26,9 @@ interface MenuRow {
   level: number;
   order_index: number;
   path_key: string | null;
+  description: string | null;
+  icon: string | null;
+  metadata: Record<string, unknown> | null;
   is_active: boolean;
   accesses: Array<{ accessId: number; accessCode: string }> | null;
 }
@@ -82,6 +85,9 @@ export class AuthzService {
              permitted.level,
              permitted.order_index,
              permitted.path_key,
+             menu.description,
+             menu.icon,
+             COALESCE(menu.metadata, '{}'::jsonb) AS metadata,
              menu.is_active,
              permitted.accesses
            FROM public.sp_user_allowed_menus_by_user($1, $2) AS permitted
@@ -100,6 +106,9 @@ export class AuthzService {
              menu.level,
              menu.order_index,
              menu.path_key,
+             menu.description,
+             menu.icon,
+             COALESCE(menu.metadata, '{}'::jsonb) AS metadata,
              menu.is_active,
              '[]'::jsonb AS accesses
            FROM public.s_sem_menu AS menu
@@ -189,6 +198,9 @@ export class AuthzService {
         level: row.level,
         orderIndex: row.order_index,
         path: row.path_key,
+        description: row.description,
+        icon: row.icon,
+        metadata: row.metadata ?? {},
         isActive: Boolean(row.is_active),
         accesses: row.accesses ?? [],
         children: [],
@@ -202,7 +214,9 @@ export class AuthzService {
       else roots.push(menu);
     });
     const sort = (items: AuthMenu[]) => {
-      items.sort((a, b) => a.orderIndex - b.orderIndex || a.name.localeCompare(b.name));
+      items.sort(
+        (a, b) => a.orderIndex - b.orderIndex || a.name.localeCompare(b.name),
+      );
       items.forEach((item) => sort(item.children));
     };
     sort(roots);

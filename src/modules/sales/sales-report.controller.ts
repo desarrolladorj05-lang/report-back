@@ -47,7 +47,10 @@ export class SalesReportController {
     ]);
     const scopedResult = context.hasAllLocals
       ? result
-      : this.filterSalesReport(result, context.locals.map((local) => local.number));
+      : this.filterSalesReport(
+          result,
+          context.locals.map((local) => local.number),
+        );
 
     this.logger.log(`[/managment-sales] Finalizado en ${Date.now() - start}ms`);
     return scopedResult;
@@ -96,7 +99,10 @@ export class SalesReportController {
     @Query() query: ContometroByProductDto,
     @Req() request: AuthenticatedRequest,
   ) {
-    await this.authzService.resolveLocalNumber(request.user.userId, query.id_local);
+    await this.authzService.resolveLocalNumber(
+      request.user.userId,
+      query.id_local,
+    );
     const start = Date.now();
     const result = await this.reportService.getContometroByProduct(
       query.id_local!,
@@ -116,7 +122,10 @@ export class SalesReportController {
     @Query() query: AllClientReportsDto,
     @Req() request: AuthenticatedRequest,
   ) {
-    await this.authzService.resolveLocalNumber(request.user.userId, query.id_local);
+    await this.authzService.resolveLocalNumber(
+      request.user.userId,
+      query.id_local,
+    );
     const start = Date.now();
     const result = await this.reportService.getAllClientReports(
       query.id_local,
@@ -180,8 +189,10 @@ export class SalesReportController {
         (sum: number, item: any) => sum + Number(item.total_acumulado_mes ?? 0),
         0,
       ),
-      analytics_general: Array.from(history, ([fecha, venta]) => ({ fecha, venta }))
-        .sort((a, b) => a.fecha.localeCompare(b.fecha)),
+      analytics_general: Array.from(history, ([fecha, venta]) => ({
+        fecha,
+        venta,
+      })).sort((a, b) => a.fecha.localeCompare(b.fecha)),
     };
   }
 }

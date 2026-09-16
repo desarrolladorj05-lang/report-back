@@ -27,13 +27,7 @@ export class AuthService {
 
     const user = await userRepository.findOne({
       where: { username: ILike(username.trim()), is_active: true },
-      select: [
-        "id_user",
-        "username",
-        "password",
-        "alias",
-        "is_active",
-      ],
+      select: ["id_user", "username", "password", "alias", "is_active"],
     });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {

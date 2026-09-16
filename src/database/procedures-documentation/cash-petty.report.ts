@@ -1,4 +1,7 @@
-import { defineParams, defineReturns } from "src/common/helpers/procedure.helpers";
+import {
+  defineParams,
+  defineReturns,
+} from "src/common/helpers/procedure.helpers";
 
 // 1. Detalles de responsable de la caja
 export interface Person {
@@ -13,27 +16,27 @@ export interface CashPettyPeriodReport {
   id: string;
   code: string;
   periodo: string;
-  fecha_apertura: string;   // "YYYY-MM-DD"
+  fecha_apertura: string; // "YYYY-MM-DD"
   fecha_cierre: string | null;
   responsable: Person;
   monto_apertura: number;
   total_ingresos: number;
   total_egresos: number;
   saldo: number;
-  estado: number;						// Código numérico
+  estado: number; // Código numérico
 }
 
 // 3. Agrupación de caja chica por sede
 export interface SedePeriodReport {
-  idlocal: string; 					// UUID
+  idlocal: string; // UUID
   local_nombre: string;
   color: string;
-  cajas: CashPettyPeriodReport[]; 
+  cajas: CashPettyPeriodReport[];
 }
 
 // 4. Respuesta principal del procedimiento
 export interface CashPettyReportResult {
-  periodo: string;						// "YYYY-MM"
+  periodo: string; // "YYYY-MM"
   sedes: SedePeriodReport[];
 }
 

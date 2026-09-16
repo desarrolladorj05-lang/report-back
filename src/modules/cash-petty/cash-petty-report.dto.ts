@@ -1,5 +1,12 @@
 import { Transform, Type } from "class-transformer";
-import { IsNotEmpty, IsNumber, IsString, IsUUID, Max, Min } from "class-validator";
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from "class-validator";
 
 export class CashPettyReportDto {
   @Type(() => Number)

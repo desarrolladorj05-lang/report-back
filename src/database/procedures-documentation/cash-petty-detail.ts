@@ -1,4 +1,7 @@
-import { defineParams, defineReturns } from "src/common/helpers/procedure.helpers";
+import {
+  defineParams,
+  defineReturns,
+} from "src/common/helpers/procedure.helpers";
 import { Person } from "./cash-petty.report";
 
 // 1. Entidad del movimiento
@@ -10,7 +13,7 @@ export interface MovementEntity {
 
 // 2. Documento asociado
 export interface MovementDocument {
-  tipo: string;     // name de sale_document_type
+  tipo: string; // name de sale_document_type
   numero: string | null;
 }
 
@@ -29,12 +32,12 @@ export interface MovementBalance {
 // 4. Movimiento unificado (ingresos + egresos)
 export interface CashPettyMovement {
   id: string;
-  fecha: string;    // "mismo formato que created_at"
-  created_at: string; 
+  fecha: string; // "mismo formato que created_at"
+  created_at: string;
   updated_at: string | null;
-  status: number;   // Código numérico (40001 | 40002)
+  status: number; // Código numérico (40001 | 40002)
   tipo_movimiento: "INCOME" | "EXPENSE";
-  tipo: string;     // name de general_param
+  tipo: string; // name de general_param
   entidad: MovementEntity | null;
   documento: MovementDocument | null;
   monto: MovementAmount;
@@ -61,9 +64,9 @@ export interface CashPettyDetail {
   periodo: string;
   fecha_apertura: string; // "YYYY-MM-DD"
   fecha_cierre: string | null;
-  responsable: Person;  
+  responsable: Person;
   totales: CashPettyTotals;
-  estado: number;         // Código numérico
+  estado: number; // Código numérico
 }
 
 // 7. Información de la sede
