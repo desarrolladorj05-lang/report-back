@@ -43,4 +43,3 @@ repository.
 No modificar funciones pertenecientes a Backoffice desde este proyecto. Si un
 reporte necesita una logica distinta, crear una funcion propia con nombre
 especifico y coordinar su migracion posterior.
-

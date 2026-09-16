@@ -62,13 +62,17 @@ export class ProductStockDashboardRepository extends BaseRepository<any> {
     };
   }
 
-  async getFuelStock(dateFrom: string, dateTo: string) {
+  async getFuelStock(
+    dateFrom: string,
+    dateTo: string,
+    allowedLocalIds?: string[],
+  ) {
     return this.executeProcedure({
       name: ProductStockDashboardProcedure.FUEL_STOCK_REPORT.name,
       params: {
         p_created_from: dateFrom,
         p_created_to: dateTo,
-        p_local_ids: null,
+        p_local_ids: allowedLocalIds?.length ? allowedLocalIds : null,
         p_warehouse_ids: null,
         p_product_ids: null,
       },

@@ -59,7 +59,11 @@ export class ProductStockDashboardService {
     return result;
   }
 
-  async getFuelStock(dateFrom: string, dateTo: string) {
+  async getFuelStock(
+    dateFrom: string,
+    dateTo: string,
+    allowedLocalIds?: string[],
+  ) {
     const from = new Date(`${dateFrom}T00:00:00Z`);
     const to = new Date(`${dateTo}T00:00:00Z`);
     if (from > to) throw new BadRequestException("Rango de fechas inválido");
@@ -69,7 +73,11 @@ export class ProductStockDashboardService {
     }
 
     const startedAt = Date.now();
-    const groups = await this.repository.getFuelStock(dateFrom, dateTo);
+    const groups = await this.repository.getFuelStock(
+      dateFrom,
+      dateTo,
+      allowedLocalIds,
+    );
     const number = (value: unknown) => Number(value ?? 0);
     const response = groups.map((group) => {
       const rawRows = Array.isArray(group.rows)
