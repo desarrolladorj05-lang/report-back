@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
+import { validateReportDateRange } from "src/common/helpers/report-date-range.helper";
 import { ProductStockDashboardRepository } from "./product-stock-dashboard.repository";
 
 @Injectable()
@@ -8,12 +9,7 @@ export class ProductStockDashboardService {
   constructor(private readonly repository: ProductStockDashboardRepository) {}
 
   async getDashboard(dateFrom: string, dateTo: string, localNumber?: number) {
-    const from = new Date(`${dateFrom}T00:00:00Z`);
-    const to = new Date(`${dateTo}T00:00:00Z`);
-    if (from > to) throw new BadRequestException("Rango de fechas inválido");
-    const days = Math.floor((to.getTime() - from.getTime()) / 86400000) + 1;
-    if (days > 366)
-      throw new BadRequestException("El rango máximo es de 366 días");
+    const { days } = validateReportDateRange(dateFrom, dateTo);
 
     this.logger.debug(
       `getDashboard llamado con rango: ${dateFrom} a ${dateTo}, localNumber: ${localNumber ?? "todas"}`,
@@ -45,6 +41,7 @@ export class ProductStockDashboardService {
     page: number,
     pageSize: number,
   ) {
+    validateReportDateRange(dateFrom, dateTo);
     const startedAt = Date.now();
     const result = await this.repository.getKardex(
       dateFrom,
@@ -64,19 +61,19 @@ export class ProductStockDashboardService {
     dateTo: string,
     allowedLocalIds?: string[],
   ) {
-    const from = new Date(`${dateFrom}T00:00:00Z`);
-    const to = new Date(`${dateTo}T00:00:00Z`);
-    if (from > to) throw new BadRequestException("Rango de fechas inválido");
-    const days = Math.floor((to.getTime() - from.getTime()) / 86400000) + 1;
-    if (days > 366) {
-      throw new BadRequestException("El rango máximo es de 366 días");
-    }
+    const { days } = validateReportDateRange(dateFrom, dateTo);
 
     const startedAt = Date.now();
     const groups = await this.repository.getFuelStock(
       dateFrom,
       dateTo,
       allowedLocalIds,
+    );
+    const localPresentation = await this.repository.getLocalPresentation(
+      [...new Set(groups.map((group) => group.local_id))],
+    );
+    const presentationByLocal = new Map(
+      localPresentation.map((local) => [local.id_local, local]),
     );
     const number = (value: unknown) => Number(value ?? 0);
     const response = groups.map((group) => {
@@ -86,6 +83,10 @@ export class ProductStockDashboardService {
       return {
         localId: group.local_id,
         localName: group.local_name,
+        localColor:
+          presentationByLocal.get(group.local_id)?.color_hex ?? "#94A3B8",
+        localOrder:
+          Number(presentationByLocal.get(group.local_id)?.sort_order) || 999,
         warehouseId: group.warehouse_id,
         warehouseName: group.warehouse_name,
         tankName: group.tank_name || "VARIOS",
@@ -104,7 +105,11 @@ export class ProductStockDashboardService {
           differenceDay: number(row.differenceDay),
         })),
       };
-    });
+    }).sort(
+      (left, right) =>
+        left.localOrder - right.localOrder ||
+        left.productName.localeCompare(right.productName),
+    );
     this.logger.debug(
       `Reporte de stock de combustibles (${dateFrom} a ${dateTo}) completado en ${Date.now() - startedAt}ms: ${response.length} grupos`,
     );

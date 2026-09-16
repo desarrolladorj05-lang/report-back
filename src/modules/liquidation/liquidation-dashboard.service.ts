@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { validateReportDateRange } from "src/common/helpers/report-date-range.helper";
 import { LiquidationDashboardRepository } from "./liquidation-dashboard.repository";
 import {
   LiquidationCashRegister,
@@ -54,13 +55,7 @@ export class LiquidationDashboardService {
     this.logger.debug(
       `getDashboard llamado con rango: ${dateFrom} a ${dateTo}, localNumber: ${localNumber ?? "todas"}`,
     );
-    const from = new Date(`${dateFrom}T00:00:00Z`);
-    const to = new Date(`${dateTo}T00:00:00Z`);
-    if (from > to)
-      throw new BadRequestException("dateFrom no puede ser posterior a dateTo");
-    const days = Math.floor((to.getTime() - from.getTime()) / 86400000) + 1;
-    if (days > 366)
-      throw new BadRequestException("El rango máximo es de 366 días");
+    const { from, days } = validateReportDateRange(dateFrom, dateTo);
 
     const previousTo = new Date(from);
     previousTo.setUTCDate(previousTo.getUTCDate() - 1);
@@ -304,6 +299,7 @@ export class LiquidationDashboardService {
     dateTo: string,
     localNumber?: number,
   ): Promise<LiquidationCashRegister[]> {
+    validateReportDateRange(dateFrom, dateTo);
     this.logger.debug(
       `getCashRegisters llamado con rango: ${dateFrom} a ${dateTo}, localNumber: ${localNumber ?? "todas"}`,
     );

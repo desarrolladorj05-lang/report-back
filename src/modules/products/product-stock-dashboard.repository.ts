@@ -4,6 +4,7 @@ import {
   ProductStockDashboardProcedure,
   ProductStockDashboardProcedureResult,
   FuelStockReportProcedureRow,
+  ProductLocalPresentationProcedureRow,
 } from "src/database/procedures-documentation/product-stock-dashboard";
 import { BaseRepository } from "src/database/repositories/base.repository";
 
@@ -77,5 +78,13 @@ export class ProductStockDashboardRepository extends BaseRepository<any> {
         p_product_ids: null,
       },
     }) as Promise<FuelStockReportProcedureRow[]>;
+  }
+
+  async getLocalPresentation(localIds: string[]) {
+    if (!localIds.length) return [];
+    return this.executeProcedure({
+      name: ProductStockDashboardProcedure.PRODUCT_LOCAL_PRESENTATION.name,
+      params: { p_local_ids: localIds },
+    }) as Promise<ProductLocalPresentationProcedureRow[]>;
   }
 }
