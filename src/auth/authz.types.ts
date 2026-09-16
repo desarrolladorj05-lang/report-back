@@ -16,6 +16,9 @@ export interface AuthMenu {
   level: number;
   orderIndex: number;
   path: string | null;
+  description: string | null;
+  icon: string | null;
+  metadata: Record<string, unknown>;
   isActive: boolean;
   accesses: Array<{ accessId: number; accessCode: string }>;
   children: AuthMenu[];

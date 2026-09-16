@@ -223,17 +223,13 @@ export class LiquidationDashboardService {
                   const cashRegisterCollected = cash + card;
                   const cashDeposited = number(cashRegister.cashDeposited);
                   const cardDeposited = number(cashRegister.cardDeposited);
-                  const cashRegisterDeposited = number(
-                    cashRegister.deposited,
-                  );
+                  const cashRegisterDeposited = number(cashRegister.deposited);
                   const cashRegisterDepositCount = number(
                     cashRegister.depositCount,
                   );
                   return {
                     id: String(cashRegister.id),
-                    cashRegisterCode: number(
-                      cashRegister.cashRegisterCode,
-                    ),
+                    cashRegisterCode: number(cashRegister.cashRegisterCode),
                     responsible: cashRegister.responsible,
                     cashCollected: cash,
                     cardCollected: card,
@@ -242,8 +238,7 @@ export class LiquidationDashboardService {
                     cardDeposited,
                     deposited: cashRegisterDeposited,
                     depositCount: cashRegisterDepositCount,
-                    difference:
-                      cashRegisterCollected - cashRegisterDeposited,
+                    difference: cashRegisterCollected - cashRegisterDeposited,
                     status:
                       cashRegisterDepositCount <= 0
                         ? ("PENDING" as const)
@@ -337,21 +332,28 @@ export class LiquidationDashboardService {
     }
     if (reports.length === 1) return reports[0];
 
-    const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
+    const sum = (values: number[]) =>
+      values.reduce((total, value) => total + value, 0);
     const mergeRows = <T extends { [key: string]: any }>(
       rows: T[],
       key: keyof T,
       numericFields: Array<keyof T>,
-    ) => Array.from(rows.reduce((map, row) => {
-      const id = String(row[key]);
-      const current = map.get(id) ?? { ...row };
-      if (map.has(id)) numericFields.forEach((field) => {
-        (current as Record<string, any>)[String(field)] =
-          Number(current[field] ?? 0) + Number(row[field] ?? 0);
-      });
-      map.set(id, current);
-      return map;
-    }, new Map<string, T>()).values());
+    ) =>
+      Array.from(
+        rows
+          .reduce((map, row) => {
+            const id = String(row[key]);
+            const current = map.get(id) ?? { ...row };
+            if (map.has(id))
+              numericFields.forEach((field) => {
+                (current as Record<string, any>)[String(field)] =
+                  Number(current[field] ?? 0) + Number(row[field] ?? 0);
+              });
+            map.set(id, current);
+            return map;
+          }, new Map<string, T>())
+          .values(),
+      );
 
     const totals = {
       totalToRender: sum(reports.map((r) => r.totals.totalToRender)),
@@ -375,14 +377,20 @@ export class LiquidationDashboardService {
       pendingCount: sum(reports.map((r) => r.comparison.pendingCount)),
     };
     const change = (current: number, prior: number) =>
-      prior === 0 ? (current === 0 ? 0 : 100) : ((current - prior) / Math.abs(prior)) * 100;
+      prior === 0
+        ? current === 0
+          ? 0
+          : 100
+        : ((current - prior) / Math.abs(prior)) * 100;
     const methods = mergeRows(
       reports.flatMap((r) => r.paymentMethods),
       "name",
       ["collected", "deposited", "difference"],
     ).map((method) => ({
       ...method,
-      percentage: totals.collected ? (method.collected / totals.collected) * 100 : 0,
+      percentage: totals.collected
+        ? (method.collected / totals.collected) * 100
+        : 0,
     }));
     const daily = mergeRows(
       reports.flatMap((r) => r.daily),
@@ -392,17 +400,27 @@ export class LiquidationDashboardService {
     const reconciliation = mergeRows(
       reports.flatMap((r) => r.depositReconciliation),
       "date",
-      ["cashCollected", "cardCollected", "totalCollected", "deposited", "depositCount", "difference"],
+      [
+        "cashCollected",
+        "cardCollected",
+        "totalCollected",
+        "deposited",
+        "depositCount",
+        "difference",
+      ],
     ).map((day) => ({
       ...day,
-      locations: reports.flatMap((r) =>
-        r.depositReconciliation.find((item) => item.date === day.date)?.locations ?? [],
+      locations: reports.flatMap(
+        (r) =>
+          r.depositReconciliation.find((item) => item.date === day.date)
+            ?.locations ?? [],
       ),
-      status: day.depositCount <= 0
-        ? ("PENDING" as const)
-        : Math.abs(day.deposited - day.totalCollected) < 0.01
-          ? ("DEPOSITED" as const)
-          : ("PARTIAL" as const),
+      status:
+        day.depositCount <= 0
+          ? ("PENDING" as const)
+          : Math.abs(day.deposited - day.totalCollected) < 0.01
+            ? ("DEPOSITED" as const)
+            : ("PARTIAL" as const),
     }));
 
     return {
@@ -410,10 +428,19 @@ export class LiquidationDashboardService {
       comparison: {
         period: reports[0].comparison.period,
         ...previous,
-        totalToRenderChange: change(totals.totalToRender, previous.totalToRender),
-        totalCollectedChange: change(totals.totalCollected, previous.totalCollected),
+        totalToRenderChange: change(
+          totals.totalToRender,
+          previous.totalToRender,
+        ),
+        totalCollectedChange: change(
+          totals.totalCollected,
+          previous.totalCollected,
+        ),
         differenceChange: change(totals.difference, previous.difference),
-        liquidationCountChange: change(totals.liquidationCount, previous.liquidationCount),
+        liquidationCountChange: change(
+          totals.liquidationCount,
+          previous.liquidationCount,
+        ),
         pendingCountChange: change(totals.pendingCount, previous.pendingCount),
       },
       totals,

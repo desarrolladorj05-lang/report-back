@@ -69,47 +69,49 @@ export class ProductStockDashboardService {
       dateTo,
       allowedLocalIds,
     );
-    const localPresentation = await this.repository.getLocalPresentation(
-      [...new Set(groups.map((group) => group.local_id))],
-    );
+    const localPresentation = await this.repository.getLocalPresentation([
+      ...new Set(groups.map((group) => group.local_id)),
+    ]);
     const presentationByLocal = new Map(
       localPresentation.map((local) => [local.id_local, local]),
     );
     const number = (value: unknown) => Number(value ?? 0);
-    const response = groups.map((group) => {
-      const rawRows = Array.isArray(group.rows)
-        ? group.rows
-        : JSON.parse(group.rows || "[]");
-      return {
-        localId: group.local_id,
-        localName: group.local_name,
-        localColor:
-          presentationByLocal.get(group.local_id)?.color_hex ?? "#94A3B8",
-        localOrder:
-          Number(presentationByLocal.get(group.local_id)?.sort_order) || 999,
-        warehouseId: group.warehouse_id,
-        warehouseName: group.warehouse_name,
-        tankName: group.tank_name || "VARIOS",
-        productId: number(group.product_id),
-        productName: group.product_name,
-        rows: rawRows.map((row) => ({
-          date: String(row.date),
-          stockInitial: number(row.stockInitial),
-          income: number(row.income),
-          internalConsumption: number(row.internalConsumption),
-          warehouseTransfer: number(row.warehouseTransfer),
-          sales: number(row.sales),
-          externalSales: number(row.externalSales),
-          stockTheoretical: number(row.stockTheoretical),
-          stockPhysical: number(row.stockPhysical),
-          differenceDay: number(row.differenceDay),
-        })),
-      };
-    }).sort(
-      (left, right) =>
-        left.localOrder - right.localOrder ||
-        left.productName.localeCompare(right.productName),
-    );
+    const response = groups
+      .map((group) => {
+        const rawRows = Array.isArray(group.rows)
+          ? group.rows
+          : JSON.parse(group.rows || "[]");
+        return {
+          localId: group.local_id,
+          localName: group.local_name,
+          localColor:
+            presentationByLocal.get(group.local_id)?.color_hex ?? "#94A3B8",
+          localOrder:
+            Number(presentationByLocal.get(group.local_id)?.sort_order) || 999,
+          warehouseId: group.warehouse_id,
+          warehouseName: group.warehouse_name,
+          tankName: group.tank_name || "VARIOS",
+          productId: number(group.product_id),
+          productName: group.product_name,
+          rows: rawRows.map((row) => ({
+            date: String(row.date),
+            stockInitial: number(row.stockInitial),
+            income: number(row.income),
+            internalConsumption: number(row.internalConsumption),
+            warehouseTransfer: number(row.warehouseTransfer),
+            sales: number(row.sales),
+            externalSales: number(row.externalSales),
+            stockTheoretical: number(row.stockTheoretical),
+            stockPhysical: number(row.stockPhysical),
+            differenceDay: number(row.differenceDay),
+          })),
+        };
+      })
+      .sort(
+        (left, right) =>
+          left.localOrder - right.localOrder ||
+          left.productName.localeCompare(right.productName),
+      );
     this.logger.debug(
       `Reporte de stock de combustibles (${dateFrom} a ${dateTo}) completado en ${Date.now() - startedAt}ms: ${response.length} grupos`,
     );
