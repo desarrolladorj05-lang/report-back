@@ -1,15 +1,51 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { validateReportDateRange } from "src/common/helpers/report-date-range.helper";
 import { LiquidationDashboardRepository } from "./liquidation-dashboard.repository";
 import {
   LiquidationCashRegister,
   LiquidationDashboardResponse,
 } from "./liquidation-dashboard.types";
+import { AuthzContext } from "src/auth/authz.types";
 
 @Injectable()
 export class LiquidationDashboardService {
   private readonly logger = new Logger(LiquidationDashboardService.name);
 
   constructor(private readonly repository: LiquidationDashboardRepository) {}
+
+  async getDashboardForScope(
+    dateFrom: string,
+    dateTo: string,
+    requestedLocal: number | undefined,
+    context: AuthzContext,
+  ) {
+    if (requestedLocal !== undefined || context.hasAllLocals) {
+      return this.getDashboard(dateFrom, dateTo, requestedLocal);
+    }
+    const reports = await Promise.all(
+      context.locals.map((local) =>
+        this.getDashboard(dateFrom, dateTo, local.number),
+      ),
+    );
+    return this.mergeDashboards(reports, dateFrom, dateTo);
+  }
+
+  async getCashRegistersForScope(
+    dateFrom: string,
+    dateTo: string,
+    requestedLocal: number | undefined,
+    context: AuthzContext,
+  ) {
+    if (requestedLocal !== undefined || context.hasAllLocals) {
+      return this.getCashRegisters(dateFrom, dateTo, requestedLocal);
+    }
+    const results = await Promise.all(
+      context.locals.map((local) =>
+        this.getCashRegisters(dateFrom, dateTo, local.number),
+      ),
+    );
+    return results.flat();
+  }
 
   async getDashboard(
     dateFrom: string,
@@ -19,13 +55,7 @@ export class LiquidationDashboardService {
     this.logger.debug(
       `getDashboard llamado con rango: ${dateFrom} a ${dateTo}, localNumber: ${localNumber ?? "todas"}`,
     );
-    const from = new Date(`${dateFrom}T00:00:00Z`);
-    const to = new Date(`${dateTo}T00:00:00Z`);
-    if (from > to)
-      throw new BadRequestException("dateFrom no puede ser posterior a dateTo");
-    const days = Math.floor((to.getTime() - from.getTime()) / 86400000) + 1;
-    if (days > 366)
-      throw new BadRequestException("El rango máximo es de 366 días");
+    const { from, days } = validateReportDateRange(dateFrom, dateTo);
 
     const previousTo = new Date(from);
     previousTo.setUTCDate(previousTo.getUTCDate() - 1);
@@ -269,6 +299,7 @@ export class LiquidationDashboardService {
     dateTo: string,
     localNumber?: number,
   ): Promise<LiquidationCashRegister[]> {
+    validateReportDateRange(dateFrom, dateTo);
     this.logger.debug(
       `getCashRegisters llamado con rango: ${dateFrom} a ${dateTo}, localNumber: ${localNumber ?? "todas"}`,
     );
@@ -294,5 +325,110 @@ export class LiquidationDashboardService {
       difference: number(row.difference),
       status: Math.abs(number(row.difference)) < 0.01 ? "COMPLIANT" : "REVIEW",
     }));
+  }
+
+  private mergeDashboards(
+    reports: LiquidationDashboardResponse[],
+    dateFrom: string,
+    dateTo: string,
+  ): LiquidationDashboardResponse {
+    if (reports.length === 0) {
+      throw new BadRequestException("El usuario no tiene sedes asignadas");
+    }
+    if (reports.length === 1) return reports[0];
+
+    const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
+    const mergeRows = <T extends { [key: string]: any }>(
+      rows: T[],
+      key: keyof T,
+      numericFields: Array<keyof T>,
+    ) => Array.from(rows.reduce((map, row) => {
+      const id = String(row[key]);
+      const current = map.get(id) ?? { ...row };
+      if (map.has(id)) numericFields.forEach((field) => {
+        (current as Record<string, any>)[String(field)] =
+          Number(current[field] ?? 0) + Number(row[field] ?? 0);
+      });
+      map.set(id, current);
+      return map;
+    }, new Map<string, T>()).values());
+
+    const totals = {
+      totalToRender: sum(reports.map((r) => r.totals.totalToRender)),
+      totalCollected: sum(reports.map((r) => r.totals.totalCollected)),
+      difference: sum(reports.map((r) => r.totals.difference)),
+      deposited: sum(reports.map((r) => r.totals.deposited)),
+      collected: sum(reports.map((r) => r.totals.collected)),
+      liquidationCount: sum(reports.map((r) => r.totals.liquidationCount)),
+      compliantCount: sum(reports.map((r) => r.totals.compliantCount)),
+      pendingCount: sum(reports.map((r) => r.totals.pendingCount)),
+      collectionRate: 0,
+    };
+    totals.collectionRate = totals.totalToRender
+      ? (totals.totalCollected / totals.totalToRender) * 100
+      : 0;
+    const previous = {
+      totalToRender: sum(reports.map((r) => r.comparison.totalToRender)),
+      totalCollected: sum(reports.map((r) => r.comparison.totalCollected)),
+      difference: sum(reports.map((r) => r.comparison.difference)),
+      liquidationCount: sum(reports.map((r) => r.comparison.liquidationCount)),
+      pendingCount: sum(reports.map((r) => r.comparison.pendingCount)),
+    };
+    const change = (current: number, prior: number) =>
+      prior === 0 ? (current === 0 ? 0 : 100) : ((current - prior) / Math.abs(prior)) * 100;
+    const methods = mergeRows(
+      reports.flatMap((r) => r.paymentMethods),
+      "name",
+      ["collected", "deposited", "difference"],
+    ).map((method) => ({
+      ...method,
+      percentage: totals.collected ? (method.collected / totals.collected) * 100 : 0,
+    }));
+    const daily = mergeRows(
+      reports.flatMap((r) => r.daily),
+      "date",
+      ["totalToRender", "totalCollected", "difference", "liquidationCount"],
+    ).sort((a, b) => a.date.localeCompare(b.date));
+    const reconciliation = mergeRows(
+      reports.flatMap((r) => r.depositReconciliation),
+      "date",
+      ["cashCollected", "cardCollected", "totalCollected", "deposited", "depositCount", "difference"],
+    ).map((day) => ({
+      ...day,
+      locations: reports.flatMap((r) =>
+        r.depositReconciliation.find((item) => item.date === day.date)?.locations ?? [],
+      ),
+      status: day.depositCount <= 0
+        ? ("PENDING" as const)
+        : Math.abs(day.deposited - day.totalCollected) < 0.01
+          ? ("DEPOSITED" as const)
+          : ("PARTIAL" as const),
+    }));
+
+    return {
+      period: reports[0].period,
+      comparison: {
+        period: reports[0].comparison.period,
+        ...previous,
+        totalToRenderChange: change(totals.totalToRender, previous.totalToRender),
+        totalCollectedChange: change(totals.totalCollected, previous.totalCollected),
+        differenceChange: change(totals.difference, previous.difference),
+        liquidationCountChange: change(totals.liquidationCount, previous.liquidationCount),
+        pendingCountChange: change(totals.pendingCount, previous.pendingCount),
+      },
+      totals,
+      daily,
+      paymentMethods: methods,
+      depositReconciliation: reconciliation,
+      locations: reports.flatMap((r) => r.locations),
+      rankings: {
+        locations: reports.flatMap((r) => r.rankings.locations),
+        responsibles: mergeRows(
+          reports.flatMap((r) => r.rankings.responsibles),
+          "key",
+          ["count", "amount"],
+        ).sort((a, b) => b.amount - a.amount),
+      },
+    };
   }
 }

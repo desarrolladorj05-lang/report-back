@@ -43,6 +43,12 @@ export interface FuelStockReportProcedureRow {
     | string;
 }
 
+export interface ProductLocalPresentationProcedureRow {
+  id_local: string;
+  color_hex: string;
+  sort_order: number;
+}
+
 export const ProductStockDashboardProcedure = {
   PRODUCT_STOCK_DASHBOARD: {
     name: "sp_product_stock_dashboard",
@@ -89,5 +95,13 @@ export const ProductStockDashboardProcedure = {
       "p_warehouse_ids",
       "p_product_ids",
     ],
+  },
+  PRODUCT_LOCAL_PRESENTATION: {
+    name: "sp_product_local_presentation",
+    params: defineParams<{
+      p_local_ids: string[];
+    }>(),
+    returns: defineReturns<ProductLocalPresentationProcedureRow>(),
+    paramOrder: ["p_local_ids"],
   },
 };

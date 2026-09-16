@@ -6,6 +6,8 @@ import { AuthService } from "./auth.service";
 import { AuthController } from "./auth.controller";
 import { appConfig } from "../config/app.config";
 import { JwtStrategy } from "./jwt.strategy";
+import { AuthzService } from "./authz.service";
+import { MenuAccessGuard } from "./menu-access.guard";
 @Module({
   imports: [
     PassportModule,
@@ -19,8 +21,8 @@ import { JwtStrategy } from "./jwt.strategy";
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, AuthzService, JwtStrategy, MenuAccessGuard],
   controllers: [AuthController],
-  exports: [AuthService],
+  exports: [AuthService, AuthzService, MenuAccessGuard],
 })
 export class AuthModule {}
