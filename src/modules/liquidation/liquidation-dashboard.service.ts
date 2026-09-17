@@ -6,6 +6,7 @@ import {
   LiquidationDashboardResponse,
 } from "./liquidation-dashboard.types";
 import { AuthzContext } from "src/auth/authz.types";
+import { isLiquidationDifferenceBalanced } from "./liquidation-dashboard.utils";
 
 @Injectable()
 export class LiquidationDashboardService {
@@ -16,11 +17,19 @@ export class LiquidationDashboardService {
   async getDashboardForScope(
     dateFrom: string,
     dateTo: string,
-    requestedLocal: number | undefined,
+    requestedLocals: number[] | undefined,
     context: AuthzContext,
   ) {
-    if (requestedLocal !== undefined || context.hasAllLocals) {
-      return this.getDashboard(dateFrom, dateTo, requestedLocal);
+    if (requestedLocals?.length) {
+      const reports = await Promise.all(
+        requestedLocals.map((localNumber) =>
+          this.getDashboard(dateFrom, dateTo, localNumber),
+        ),
+      );
+      return this.mergeDashboards(reports, dateFrom, dateTo);
+    }
+    if (context.hasAllLocals) {
+      return this.getDashboard(dateFrom, dateTo);
     }
     const reports = await Promise.all(
       context.locals.map((local) =>
@@ -198,7 +207,9 @@ export class LiquidationDashboardService {
           status:
             depositCount <= 0
               ? ("PENDING" as const)
-              : Math.abs(depositedAmount - totalCollected) < 0.01
+              : isLiquidationDifferenceBalanced(
+                    depositedAmount - totalCollected,
+                  )
                 ? ("DEPOSITED" as const)
                 : ("PARTIAL" as const),
           locations: (row.locations ?? []).map((location) => {
@@ -242,9 +253,9 @@ export class LiquidationDashboardService {
                     status:
                       cashRegisterDepositCount <= 0
                         ? ("PENDING" as const)
-                        : Math.abs(
+                        : isLiquidationDifferenceBalanced(
                               cashRegisterDeposited - cashRegisterCollected,
-                            ) < 0.01
+                            )
                           ? ("DEPOSITED" as const)
                           : ("PARTIAL" as const),
                   };
@@ -318,7 +329,9 @@ export class LiquidationDashboardService {
       totalToRender: number(row.total_to_render),
       totalCollected: number(row.total_collected),
       difference: number(row.difference),
-      status: Math.abs(number(row.difference)) < 0.01 ? "COMPLIANT" : "REVIEW",
+      status: isLiquidationDifferenceBalanced(number(row.difference))
+        ? "COMPLIANT"
+        : "REVIEW",
     }));
   }
 
@@ -418,7 +431,7 @@ export class LiquidationDashboardService {
       status:
         day.depositCount <= 0
           ? ("PENDING" as const)
-          : Math.abs(day.deposited - day.totalCollected) < 0.01
+          : isLiquidationDifferenceBalanced(day.deposited - day.totalCollected)
             ? ("DEPOSITED" as const)
             : ("PARTIAL" as const),
     }));

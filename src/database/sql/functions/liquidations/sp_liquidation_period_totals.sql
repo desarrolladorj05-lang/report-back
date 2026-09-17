@@ -54,20 +54,35 @@ WITH scope AS MATERIALIZED (
     END BETWEEN p_date_from::date AND p_date_to::date
     AND (p_local_number IS NULL OR loc.local_number = p_local_number)
 ),
-sales_by_cash AS (
-  SELECT sc.id_cash_register, COALESCE(SUM(p.amount), 0)::numeric AS total_sales
+valid_payment_methods AS MATERIALIZED (
+  SELECT id_payment_method
+  FROM public.payment_method
+  WHERE is_active = TRUE
+    AND state_audit = 1200001
+    AND id_payment_method NOT IN (4, 7, 8, 9, 10)
+),
+scoped_sales AS MATERIALIZED (
+  SELECT s.id_sale, s.id_cash_register
   FROM scope sc
   INNER JOIN public.sale s ON s.id_cash_register = sc.id_cash_register
     AND s.state = 40001 AND s.state_audit = 1200001
     AND COALESCE(s.id_sale_operation_type, 0) <> 4
     AND NOT (COALESCE(s.id_sale_operation_type, 0) = 6
       AND COALESCE(s.id_sale_document_type, 0) IN (1, 2))
-  INNER JOIN public.payment p ON p.id_sale = s.id_sale
+),
+payments_by_cash AS MATERIALIZED (
+  SELECT ss.id_cash_register, p.amount, p.id_payment_method
+  FROM scoped_sales ss
+  INNER JOIN public.payment p ON p.id_sale = ss.id_sale
     AND p.state = 40001 AND p.state_audit = 1200001
-  INNER JOIN public.payment_method pm ON pm.id_payment_method = p.id_payment_method
-    AND pm.is_active = TRUE AND pm.state_audit = 1200001
-    AND pm.id_payment_method NOT IN (4, 7, 8, 9, 10)
-  GROUP BY sc.id_cash_register
+    AND p.id_payment_method NOT IN (4, 7, 8, 9, 10)
+),
+sales_by_cash AS (
+  SELECT p.id_cash_register, COALESCE(SUM(p.amount), 0)::numeric AS total_sales
+  FROM payments_by_cash p
+  INNER JOIN valid_payment_methods pm
+    ON pm.id_payment_method = p.id_payment_method
+  GROUP BY p.id_cash_register
 ),
 other_income_by_cash AS (
   SELECT sc.id_cash_register, COALESCE(SUM(d.total_amount), 0)::numeric AS other_income
@@ -103,7 +118,7 @@ SELECT
   COALESCE(SUM(total_collected), 0)::float,
   COALESCE(SUM(difference), 0)::float,
   COUNT(*)::int,
-  COUNT(*) FILTER (WHERE ABS(difference) < 0.01)::int,
-  COUNT(*) FILTER (WHERE ABS(difference) >= 0.01)::int
+  COUNT(*) FILTER (WHERE ROUND(ABS(difference), 2) = 0)::int,
+  COUNT(*) FILTER (WHERE ROUND(ABS(difference), 2) > 0)::int
 FROM per_cash;
 $function$;

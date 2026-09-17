@@ -23,14 +23,14 @@ BEGIN
   FOR v_menu IN
     SELECT *
     FROM (VALUES
-      ('report.sale.menu',        'REPORT_SALES',        'Ventas',               '/ventas',       'TrendingUp',  1, true,  'Resumen de ventas e indicadores comerciales'),
-      ('report.pretty-cash.menu', 'REPORT_CASH_PETTY',   'Caja Chica',           '/caja',         'Wallet',      2, true,  'Movimientos y saldos de caja chica'),
-      ('report.shifts.menu',      'REPORT_SHIFTS',       'Turnos',               '/turnos',       'Clock',       3, false, 'Analisis operativo por turnos'),
-      ('report.products.menu',    'REPORT_PRODUCTS',     'Productos',            '/productos',    'Package',     4, true,  'Stock y control de combustibles'),
-      ('report.credits.menu',     'REPORT_CREDITS',      'Creditos y Adelantos', '/creditos',     'CreditCard',  5, false, 'Cuentas por cobrar y adelantos'),
-      ('report.sunat.menu',       'REPORT_SUNAT',        'SUNAT',                 '/sunat',         'FileText',    6, false, 'Cumplimiento y comprobantes electronicos'),
-      ('report.pdf.menu',         'REPORT_PDF',          'Reportes PDF',          '/reportes',      'Receipt',     7, false, 'Reportes exportables e impresion'),
-      ('report.liquidation.menu', 'REPORT_LIQUIDATIONS', 'Liquidaciones',         '/liquidaciones', 'DollarSign',  8, true,  'Cierres y conciliacion de liquidaciones')
+      ('report.sale.menu',        'REPORT_SALES',        'Ventas',               '/ventas',       'TrendingUp',  1, true,  'Resumen general de ingresos, márgenes y métricas de rendimiento por turno.'),
+      ('report.pretty-cash.menu', 'REPORT_CASH_PETTY',   'Caja',                 '/caja',         'Wallet',      2, true,  'Seguimiento de flujo de efectivo, cuadre de cajas y medios de pago.'),
+      ('report.shifts.menu',      'REPORT_SHIFTS',       'Turnos',               '/turnos',       'Clock',       3, false, 'Análisis de eficiencia operativa comparada entre mañanas, tardes y noches.'),
+      ('report.products.menu',    'REPORT_PRODUCTS',     'Productos',            '/productos',    'Package',     4, true,  'Inventario de combustibles y tienda, control de stock y rotación.'),
+      ('report.credits.menu',     'REPORT_CREDITS',      'Creditos y Adelantos', '/creditos',     'CreditCard',  5, false, 'Gestión de cuentas por cobrar, estados de cuenta de clientes y adelantos.'),
+      ('report.sunat.menu',       'REPORT_SUNAT',        'SUNAT',                '/sunat',         'FileText',   6, false, 'Cumplimiento tributario, envío de comprobantes electrónicos y validaciones.'),
+      ('report.pdf.menu',         'REPORT_PDF',          'Reportes PDF',         '/reportes',      'Receipt',    7, false, 'Generación de informes exportables y reportes listos para imprimir.'),
+      ('report.liquidation.menu', 'REPORT_LIQUIDATIONS', 'Liquidaciones',        '/liquidaciones', 'DollarSign', 8, true,  'Cierres diarios consolidados y conciliación bancaria de la estación.')
     ) AS catalog(menu_code, menu_key, menu_name, path_key, icon, order_index, is_active, description)
   LOOP
     SELECT id_menu INTO v_menu_id
