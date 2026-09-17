@@ -16,11 +16,19 @@ export class LiquidationDashboardService {
   async getDashboardForScope(
     dateFrom: string,
     dateTo: string,
-    requestedLocal: number | undefined,
+    requestedLocals: number[] | undefined,
     context: AuthzContext,
   ) {
-    if (requestedLocal !== undefined || context.hasAllLocals) {
-      return this.getDashboard(dateFrom, dateTo, requestedLocal);
+    if (requestedLocals?.length) {
+      const reports = await Promise.all(
+        requestedLocals.map((localNumber) =>
+          this.getDashboard(dateFrom, dateTo, localNumber),
+        ),
+      );
+      return this.mergeDashboards(reports, dateFrom, dateTo);
+    }
+    if (context.hasAllLocals) {
+      return this.getDashboard(dateFrom, dateTo);
     }
     const reports = await Promise.all(
       context.locals.map((local) =>

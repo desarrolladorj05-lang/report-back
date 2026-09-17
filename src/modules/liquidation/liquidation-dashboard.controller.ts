@@ -24,17 +24,19 @@ export class LiquidationDashboardController {
     @Req() request: AuthenticatedRequest,
   ) {
     const context = await this.authzService.getContext(request.user.userId);
-    if (query.localNumber !== undefined) {
-      await this.authzService.resolveLocalNumber(
-        request.user.userId,
-        query.localNumber,
-      );
-    }
+    const requestedLocals =
+      query.localNumbers ??
+      (query.localNumber !== undefined ? [query.localNumber] : undefined);
+    await Promise.all(
+      (requestedLocals ?? []).map((localNumber) =>
+        this.authzService.resolveLocalNumber(request.user.userId, localNumber),
+      ),
+    );
     const start = Date.now();
     const result = await this.service.getDashboardForScope(
       query.dateFrom,
       query.dateTo,
-      query.localNumber,
+      requestedLocals,
       context,
     );
     this.logger.log(
