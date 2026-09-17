@@ -79,7 +79,7 @@ export const ProductStockDashboardProcedure = {
     ],
   },
   FUEL_STOCK_REPORT: {
-    name: "get_fuel_stock_detailed_groups",
+    name: "sp_report_fuel_stock_detailed_groups",
     params: defineParams<{
       p_created_from: string;
       p_created_to: string;
