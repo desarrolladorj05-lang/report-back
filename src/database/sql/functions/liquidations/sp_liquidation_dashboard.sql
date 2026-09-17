@@ -277,8 +277,8 @@ location_data AS (
     COALESCE(SUM(total_collected), 0)::float AS total_collected,
     COALESCE(SUM(difference), 0)::float AS difference,
     COUNT(*)::int AS liquidation_count,
-    COUNT(*) FILTER (WHERE ABS(difference) < 0.01)::int AS compliant_count,
-    COUNT(*) FILTER (WHERE ABS(difference) >= 0.01)::int AS pending_count
+    COUNT(*) FILTER (WHERE ROUND(ABS(difference), 2) = 0)::int AS compliant_count,
+    COUNT(*) FILTER (WHERE ROUND(ABS(difference), 2) > 0)::int AS pending_count
   FROM per_cash
   GROUP BY local_number, local_name, local_color, local_sort_order
 ),
@@ -289,7 +289,7 @@ location_ranking_data AS (
     COUNT(*)::int AS count,
     COALESCE(SUM(ABS(difference)), 0)::float AS amount
   FROM per_cash
-  WHERE ABS(difference) >= 0.01
+  WHERE ROUND(ABS(difference), 2) > 0
   GROUP BY local_number, local_name
   ORDER BY amount DESC
   LIMIT 5
@@ -302,7 +302,7 @@ responsible_ranking_data AS (
     COUNT(*)::int AS count,
     COALESCE(SUM(ABS(difference)), 0)::float AS amount
   FROM per_cash
-  WHERE ABS(difference) >= 0.01
+  WHERE ROUND(ABS(difference), 2) > 0
   GROUP BY responsible
   ORDER BY amount DESC
   LIMIT 5

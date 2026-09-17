@@ -118,7 +118,7 @@ SELECT
   COALESCE(SUM(total_collected), 0)::float,
   COALESCE(SUM(difference), 0)::float,
   COUNT(*)::int,
-  COUNT(*) FILTER (WHERE ABS(difference) < 0.01)::int,
-  COUNT(*) FILTER (WHERE ABS(difference) >= 0.01)::int
+  COUNT(*) FILTER (WHERE ROUND(ABS(difference), 2) = 0)::int,
+  COUNT(*) FILTER (WHERE ROUND(ABS(difference), 2) > 0)::int
 FROM per_cash;
 $function$;
