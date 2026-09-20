@@ -13,10 +13,25 @@ BEGIN
     v_timestamp_fin := (v_fecha_busqueda_date + INTERVAL '2 days')::TIMESTAMPTZ;
 
     RETURN QUERY
-    WITH ventas_id_filtradas AS (
-        SELECT s.id_sale, l.local_number -- Mantenemos el local_number para el join final
+    WITH ventas_id_filtradas AS MATERIALIZED (
+        SELECT
+            s.id_sale,
+            l.local_number,
+            COALESCE(l.name, 'SEDE ' || l.local_number) AS nombre_sede_real,
+            ws.shift_name AS nombre_turno,
+            s.id_sale_operation_type,
+            s.transferencia_gratuita,
+            CASE
+                WHEN ws.shift_name = 'MAÑANA' THEN
+                    to_char(cr.opennig_date AT TIME ZONE 'America/Lima', 'DD/MM/YYYY')
+                WHEN EXTRACT(hour FROM cr.opennig_date AT TIME ZONE 'America/Lima') < 7.5 THEN
+                    to_char((cr.opennig_date AT TIME ZONE 'America/Lima') - INTERVAL '1 day', 'DD/MM/YYYY')
+                ELSE to_char(cr.opennig_date AT TIME ZONE 'America/Lima', 'DD/MM/YYYY')
+            END AS fecha_negocio
         FROM public.sale s
         INNER JOIN public.local l ON s.id_local = l.id_local
+        INNER JOIN public.cash_register cr ON cr.id_cash_register = s.id_cash_register
+        INNER JOIN public.work_shift ws ON ws.id_work_shift = cr.id_work_shift
         WHERE s.created_at >= v_timestamp_inicio 
           AND s.created_at <= v_timestamp_fin
           AND (p_id_local IS NULL OR l.local_number = p_id_local)
@@ -25,29 +40,28 @@ BEGIN
     ventas_filtradas AS (
         SELECT 
             vf.local_number,
-            COALESCE((SELECT l.name FROM local l WHERE l.local_number = vf.local_number LIMIT 1), 'SEDE ' || vf.local_number) as nombre_sede_real,
-            vb.nombre_turno,
+            vf.nombre_sede_real,
+            vf.nombre_turno,
             -- Asignación manual del ID de turno según su nombre
             CASE 
-                WHEN UPPER(vb.nombre_turno) LIKE '%MAÑANA%' THEN 1
-                WHEN UPPER(vb.nombre_turno) LIKE '%TARDE%' THEN 2
-                WHEN UPPER(vb.nombre_turno) LIKE '%NOCHE%' THEN 3
-                WHEN UPPER(vb.nombre_turno) LIKE '%MADRUGADA%' THEN 4
+                WHEN UPPER(vf.nombre_turno) LIKE '%MAÑANA%' THEN 1
+                WHEN UPPER(vf.nombre_turno) LIKE '%TARDE%' THEN 2
+                WHEN UPPER(vf.nombre_turno) LIKE '%NOCHE%' THEN 3
+                WHEN UPPER(vf.nombre_turno) LIKE '%MADRUGADA%' THEN 4
                 ELSE 99 -- Para turnos no identificados o totales
             END AS id_turno,
             (sd.product_snapshot->>'productId')::INT as id_producto,
             sd.product_snapshot->>'description' as producto,
-            (CASE WHEN vb.id_sale_operation_type = 4 THEN 0 ELSE sd.quantity END)::numeric(12,3) as quantity_filtrada,
-            (CASE WHEN vb.id_sale_operation_type = 4 THEN sd.quantity ELSE 0 END)::numeric(12,3) as quantity_serafin_solo,
+            (CASE WHEN vf.id_sale_operation_type = 4 THEN 0 ELSE sd.quantity END)::numeric(12,3) as quantity_filtrada,
+            (CASE WHEN vf.id_sale_operation_type = 4 THEN sd.quantity ELSE 0 END)::numeric(12,3) as quantity_serafin_solo,
             (CASE 
-                WHEN vb.id_sale_operation_type IN (3, 4) THEN 0
-                WHEN COALESCE(vb.transferencia_gratuita, 0) > 0 THEN 0
+                WHEN vf.id_sale_operation_type IN (3, 4) THEN 0
+                WHEN COALESCE(vf.transferencia_gratuita, 0) > 0 THEN 0
                 ELSE sd.total_amount 
              END)::numeric(12,2) as subtotal_item
         FROM ventas_id_filtradas vf
-        INNER JOIN vw_reporte_ventas_base vb ON vf.id_sale = vb.id_sale
-        INNER JOIN sale_detail sd ON vb.id_sale = sd.id_sale
-        WHERE vb.fecha_negocio = p_fecha_busqueda
+        INNER JOIN sale_detail sd ON vf.id_sale = sd.id_sale
+        WHERE vf.fecha_negocio = p_fecha_busqueda
           AND (sd.product_snapshot->>'groupProductId')::INT = 20006
     ),
     metricas_agrupadas AS (
