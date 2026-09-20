@@ -30,6 +30,7 @@ export interface BloqueReporteSede {
 
 // Estructura raíz que devuelve el SP (resultado jsonb)
 export interface RespuestaReporteSede {
+  id_local: number;
   nombre_sede: string;
   reporte: BloqueReporteSede[];
 }

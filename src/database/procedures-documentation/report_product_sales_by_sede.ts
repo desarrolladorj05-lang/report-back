@@ -23,6 +23,7 @@ export interface BloqueReporteCombustible {
 
 // Estructura raíz de una sede
 export interface ReporteCombustiblesSede {
+  id_local: number;
   nombre_sede: string;
   color_sede: string;
   categoria: string;

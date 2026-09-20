@@ -133,12 +133,14 @@ BEGIN
         FROM pre_pagos_agrupados WHERE metodo IS NOT NULL GROUP BY 1, 2
     )
     SELECT jsonb_agg(jsonb_build_object(
+        'id_local', d.local_number,
         'nombre_sede', d.local_nombre_real, 
         'color_sede', d.color_hex,
         'reporte', d.bloques
     ))
     FROM (
         SELECT 
+            ma.local_number,
             ma.local_nombre_real,
             ol.color_hex,
             jsonb_agg(jsonb_build_object(
@@ -173,7 +175,7 @@ BEGIN
         LEFT JOIN metodos_pago_final mpf ON mpf.local_number = ma.local_number AND mpf.grupo_pago = ma.grupo
         LEFT JOIN json_recaudo_agrupado jra ON jra.local_number = ma.local_number AND jra.nombre_turno = ma.grupo
         LEFT JOIN public.order_locals ol ON ma.local_number = ol.local_number 
-        GROUP BY ma.local_nombre_real, ol.sort_order, ol.color_hex
+        GROUP BY ma.local_number, ma.local_nombre_real, ol.sort_order, ol.color_hex
         ORDER BY COALESCE(ol.sort_order, 999) ASC
     ) d;
 END;

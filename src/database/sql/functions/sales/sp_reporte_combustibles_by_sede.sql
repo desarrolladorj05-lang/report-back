@@ -110,6 +110,7 @@ BEGIN
             f.nombre_sede_real,
             ol.color_hex,
             jsonb_build_object(
+                'id_local', f.local_number,
                 'nombre_sede', f.nombre_sede_real,
                 'color_sede', ol.color_hex,
                 'categoria', 'Combustibles',

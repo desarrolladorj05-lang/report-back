@@ -61,18 +61,23 @@ export class SalesReportController {
     @Query() query: SalesBySedeDto,
     @Req() request: AuthenticatedRequest,
   ): Promise<RespuestaReporteSede[]> {
-    const scope = await this.authzService.resolveLocalNumber(
-      request.user.userId,
-      query.id_local,
-    );
+    const context =
+      query.id_local === undefined
+        ? await this.authzService.getContext(request.user.userId)
+        : (
+            await this.authzService.resolveLocalNumber(
+              request.user.userId,
+              query.id_local,
+            )
+          ).context;
     const start = Date.now();
     const result = await this.reportService.getReporteVentasBySede(
-      scope.localNumber,
+      query.id_local,
       query.date,
     );
 
     this.logger.log(`[/sales-by-sede] Finalizado en ${Date.now() - start}ms`);
-    return result;
+    return this.filterReportsByLocalScope(result, context, query.id_local);
   }
 
   @Get("fuel-by-sede")
@@ -80,18 +85,23 @@ export class SalesReportController {
     @Query() query: FuelReportBySedeDto,
     @Req() request: AuthenticatedRequest,
   ) {
-    const scope = await this.authzService.resolveLocalNumber(
-      request.user.userId,
-      query.id_local,
-    );
+    const context =
+      query.id_local === undefined
+        ? await this.authzService.getContext(request.user.userId)
+        : (
+            await this.authzService.resolveLocalNumber(
+              request.user.userId,
+              query.id_local,
+            )
+          ).context;
     const start = Date.now();
     const result = await this.reportService.getReporteCombustiblesBySede(
-      scope.localNumber,
+      query.id_local,
       query.date,
     );
 
     this.logger.log(`[/fuel-by-sede] Finalizado en ${Date.now() - start}ms`);
-    return result;
+    return this.filterReportsByLocalScope(result, context, query.id_local);
   }
 
   @Get("contometer-by-product")
@@ -194,5 +204,15 @@ export class SalesReportController {
         venta,
       })).sort((a, b) => a.fecha.localeCompare(b.fecha)),
     };
+  }
+
+  private filterReportsByLocalScope<T extends { id_local: number }>(
+    reports: T[],
+    context: { hasAllLocals: boolean; locals: Array<{ number: number }> },
+    requestedLocal?: number,
+  ): T[] {
+    if (requestedLocal !== undefined || context.hasAllLocals) return reports;
+    const allowed = new Set(context.locals.map((local) => local.number));
+    return reports.filter((report) => allowed.has(Number(report.id_local)));
   }
 }
