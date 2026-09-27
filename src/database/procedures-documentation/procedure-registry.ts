@@ -7,6 +7,7 @@ import { CashPettyDetailProcedure } from "./cash-petty-detail";
 import { ReportContometroByProductProcedure } from "./report_contometer_by_product";
 import { LiquidationDashboardProcedure } from "./liquidation-dashboard";
 import { ProductStockDashboardProcedure } from "./product-stock-dashboard";
+import { CommercialSalesReportProcedure } from "./commercial-sales-report";
 
 export const procedureRegistry = {
   ...SalesReportProcedure,
@@ -18,6 +19,7 @@ export const procedureRegistry = {
   ...ReportContometroByProductProcedure,
   ...LiquidationDashboardProcedure,
   ...ProductStockDashboardProcedure,
+  ...CommercialSalesReportProcedure,
 } as const;
 
 type ProcedureRegistry = typeof procedureRegistry;

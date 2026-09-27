@@ -57,8 +57,18 @@ export class TenantConnectionManager implements OnModuleDestroy {
       logging: this.config.get<string>("NODE_ENV") === "development",
       extra: {
         max: this.config.get<number>("TENANT_POOL_SIZE", 15),
-        connectionTimeoutMillis: 2000,
-        idleTimeoutMillis: 10000,
+        connectionTimeoutMillis: this.config.get<number>(
+          "TENANT_CONNECTION_TIMEOUT_MS",
+          15000,
+        ),
+        idleTimeoutMillis: this.config.get<number>(
+          "TENANT_IDLE_TIMEOUT_MS",
+          30000,
+        ),
+        statement_timeout: this.config.get<number>(
+          "DB_STATEMENT_TIMEOUT_MS",
+          60000,
+        ),
       },
     });
     return source.initialize();

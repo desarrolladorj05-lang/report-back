@@ -14,6 +14,13 @@ export const envValidationSchema = Joi.object({
   TENANT_CACHE_MAX: Joi.number().integer().positive().default(100),
   TENANT_POOL_SIZE: Joi.number().integer().positive().default(15),
   TENANT_POOL_TTL_MIN: Joi.number().integer().positive().default(5),
+  TENANT_CONNECTION_TIMEOUT_MS: Joi.number()
+    .integer()
+    .positive()
+    .default(15000),
+  TENANT_IDLE_TIMEOUT_MS: Joi.number().integer().positive().default(30000),
+  DB_CONNECTION_TIMEOUT_MS: Joi.number().integer().positive().default(15000),
+  DB_STATEMENT_TIMEOUT_MS: Joi.number().integer().positive().default(60000),
   PORT: Joi.number().default(1506),
   NODE_ENV: Joi.string()
     .valid("development", "production", "test")

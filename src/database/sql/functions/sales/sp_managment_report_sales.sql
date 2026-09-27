@@ -27,25 +27,39 @@ BEGIN
         FROM public.order_locals ol
         LEFT JOIN public.local l ON ol.local_number = l.local_number
     ),
-    ventas_filtradas AS (
-        -- Filtro rápido por índice de tiempo
-        SELECT id_sale FROM sale 
-        WHERE created_at >= v_timestamp_inicio AND created_at <= v_timestamp_fin
-        AND state = 40001
+    ventas_filtradas AS MATERIALIZED (
+        -- Se lee sale una sola vez y la fecha operativa se calcula desde la caja.
+        SELECT
+            l.local_number AS idlocal,
+            CASE
+                WHEN ws.shift_name = 'MAÑANA' THEN
+                    (cr.opennig_date AT TIME ZONE 'America/Lima')::date
+                WHEN EXTRACT(hour FROM cr.opennig_date AT TIME ZONE 'America/Lima') < 7.5 THEN
+                    ((cr.opennig_date AT TIME ZONE 'America/Lima') - INTERVAL '1 day')::date
+                ELSE (cr.opennig_date AT TIME ZONE 'America/Lima')::date
+            END AS fecha_negocio_date,
+            ws.shift_name AS turno_nombre,
+            s.total_amount,
+            s.id_sale_operation_type
+        FROM public.sale s
+        INNER JOIN public.local l ON l.id_local = s.id_local
+        INNER JOIN public.cash_register cr ON cr.id_cash_register = s.id_cash_register
+        INNER JOIN public.work_shift ws ON ws.id_work_shift = cr.id_work_shift
+        WHERE s.created_at >= v_timestamp_inicio
+          AND s.created_at <= v_timestamp_fin
+          AND s.state = 40001
     ),
     base_calculo_neta AS (
-        -- Detalle por turno y sede
-        SELECT 
-            v.local_number as idlocal,
-            v.fecha_negocio,
-            v.nombre_turno as turno_nombre, 
-            (SUM(v.total_amount) - 
+        SELECT
+            v.idlocal,
+            to_char(v.fecha_negocio_date, 'DD/MM/YYYY') AS fecha_negocio,
+            v.turno_nombre,
+            (SUM(v.total_amount) -
             SUM(CASE WHEN v.id_sale_operation_type IN (3,4,5,6) THEN v.total_amount ELSE 0 END)
-            )::NUMERIC(15,2) as monto_neta_real
-        FROM vw_reporte_ventas_base v
-        INNER JOIN ventas_filtradas vf ON v.id_sale = vf.id_sale
-        WHERE to_date(v.fecha_negocio, 'DD/MM/YYYY') BETWEEN v_fecha_inicio_mes_date AND v_fecha_busqueda_date
-        GROUP BY 1, 2, 3
+            )::NUMERIC(15,2) AS monto_neta_real
+        FROM ventas_filtradas v
+        WHERE v.fecha_negocio_date BETWEEN v_fecha_inicio_mes_date AND v_fecha_busqueda_date
+        GROUP BY v.idlocal, v.fecha_negocio_date, v.turno_nombre
     ),
     sedes_totales_diarios AS (
         -- Total por sede y día
@@ -116,7 +130,13 @@ BEGIN
                                 'turno', d.turno_nombre,
                                 'monto', d.monto_neta_real::NUMERIC(15,2),
                                 'porc_del_local', ROUND((d.monto_neta_real / NULLIF(v_hoy.total_dia_sede, 0)) * 100, 2)::NUMERIC(15,2)
-                            )
+                            ) ORDER BY CASE UPPER(TRIM(d.turno_nombre))
+                                WHEN 'MAÑANA' THEN 1
+                                WHEN 'TARDE' THEN 2
+                                WHEN 'NOCHE' THEN 3
+                                WHEN 'MADRUGADA' THEN 4
+                                ELSE 99
+                            END
                         )
                         FROM base_calculo_neta d 
                         WHERE d.idlocal = mc.idlocal AND d.fecha_negocio = p_fecha_busqueda
