@@ -6,6 +6,7 @@ DECLARE
   v_menu record;
   v_menu_id integer;
   v_access_id integer;
+  v_access_code text;
   v_admin_profile_id integer;
 BEGIN
   SELECT id_module
@@ -24,13 +25,14 @@ BEGIN
     SELECT *
     FROM (VALUES
       ('report.sale.menu',        'REPORT_SALES',        'Ventas',               '/ventas',       'TrendingUp',  1, true,  'Resumen general de ingresos, márgenes y métricas de rendimiento por turno.'),
-      ('report.pretty-cash.menu', 'REPORT_CASH_PETTY',   'Caja',                 '/caja',         'Wallet',      2, true,  'Seguimiento de flujo de efectivo, cuadre de cajas y medios de pago.'),
-      ('report.shifts.menu',      'REPORT_SHIFTS',       'Turnos',               '/turnos',       'Clock',       3, false, 'Análisis de eficiencia operativa comparada entre mañanas, tardes y noches.'),
-      ('report.products.menu',    'REPORT_PRODUCTS',     'Productos',            '/productos',    'Package',     4, true,  'Inventario de combustibles y tienda, control de stock y rotación.'),
-      ('report.credits.menu',     'REPORT_CREDITS',      'Creditos y Adelantos', '/creditos',     'CreditCard',  5, false, 'Gestión de cuentas por cobrar, estados de cuenta de clientes y adelantos.'),
-      ('report.sunat.menu',       'REPORT_SUNAT',        'SUNAT',                '/sunat',         'FileText',   6, false, 'Cumplimiento tributario, envío de comprobantes electrónicos y validaciones.'),
-      ('report.pdf.menu',         'REPORT_PDF',          'Reportes PDF',         '/reportes',      'Receipt',    7, false, 'Generación de informes exportables y reportes listos para imprimir.'),
-      ('report.liquidation.menu', 'REPORT_LIQUIDATIONS', 'Liquidaciones',        '/liquidaciones', 'DollarSign', 8, true,  'Cierres diarios consolidados y conciliación bancaria de la estación.')
+      ('report.comercial.sale', 'REPORT_COMERCIAL_SALE', 'Ventas Comerciales', '/ventas-comercial', 'ChartNoAxesCombined', 2, true, 'Ventas de combustibles por periodo, sede y fecha en soles y galones.'),
+      ('report.pretty-cash.menu', 'REPORT_CASH_PETTY',   'Caja',                 '/caja',         'Wallet',      3, true,  'Seguimiento de flujo de efectivo, cuadre de cajas y medios de pago.'),
+      ('report.shifts.menu',      'REPORT_SHIFTS',       'Turnos',               '/turnos',       'Clock',       4, false, 'Análisis de eficiencia operativa comparada entre mañanas, tardes y noches.'),
+      ('report.products.menu',    'REPORT_PRODUCTS',     'Productos',            '/productos',    'Package',     5, true,  'Inventario de combustibles y tienda, control de stock y rotación.'),
+      ('report.credits.menu',     'REPORT_CREDITS',      'Creditos y Adelantos', '/creditos',     'CreditCard',  6, false, 'Gestión de cuentas por cobrar, estados de cuenta de clientes y adelantos.'),
+      ('report.sunat.menu',       'REPORT_SUNAT',        'SUNAT',                '/sunat',         'FileText',   7, false, 'Cumplimiento tributario, envío de comprobantes electrónicos y validaciones.'),
+      ('report.pdf.menu',         'REPORT_PDF',          'Reportes PDF',         '/reportes',      'Receipt',    8, false, 'Generación de informes exportables y reportes listos para imprimir.'),
+      ('report.liquidation.menu', 'REPORT_LIQUIDATIONS', 'Liquidaciones',        '/liquidaciones', 'DollarSign', 9, true,  'Cierres diarios consolidados y conciliación bancaria de la estación.')
     ) AS catalog(menu_code, menu_key, menu_name, path_key, icon, order_index, is_active, description)
   LOOP
     SELECT id_menu INTO v_menu_id
@@ -64,9 +66,15 @@ BEGIN
       WHERE id_menu = v_menu_id;
     END IF;
 
+    v_access_code := CASE
+      WHEN v_menu.menu_code = 'report.comercial.sale'
+        THEN 'report.comercial-sale.read.all'
+      ELSE replace(v_menu.menu_code, '.menu', '-menu.read.all')
+    END;
+
     SELECT id_access INTO v_access_id
     FROM public.s_sem_access
-    WHERE access_code = replace(v_menu.menu_code, '.menu', '-menu.read.all')
+    WHERE access_code = v_access_code
       AND state_audit = 1200001
     LIMIT 1;
 
@@ -75,7 +83,7 @@ BEGIN
         access_code, name, description, resource_key, menu_id,
         accion_id, scope_id, metadata, state_audit
       ) VALUES (
-        replace(v_menu.menu_code, '.menu', '-menu.read.all'),
+        v_access_code,
         upper(v_menu.menu_name) || ' - VER',
         'Ver ' || v_menu.menu_name || ' en Reporte Gerencial',
         v_menu.menu_code, v_menu_id, 1910015, 2350007,

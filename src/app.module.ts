@@ -12,6 +12,7 @@ import { CashPettyReportModule } from "./modules/cash-petty/cash-petty-report.mo
 import { TenancyModule } from "./config/tenancy/tenancy.module";
 import { LiquidationDashboardModule } from "./modules/liquidation/liquidation-dashboard.module";
 import { ProductStockDashboardModule } from "./modules/products/product-stock-dashboard.module";
+import { CommercialSalesModule } from "./modules/commercial-sales/commercial-sales.module";
 
 @Module({
   imports: [
@@ -48,8 +49,14 @@ import { ProductStockDashboardModule } from "./modules/products/product-stock-da
           maxLifetimeMillis: 3600000,
 
           // --- SEGURIDAD Y TIMEOUTS ---
-          connectionTimeoutMillis: 2000, // Error rápido si la BD no responde en 2s
-          statement_timeout: 60000, // Cancela cualquier query que pase de 1 minuto
+          connectionTimeoutMillis: configService.get<number>(
+            "DB_CONNECTION_TIMEOUT_MS",
+            15000,
+          ),
+          statement_timeout: configService.get<number>(
+            "DB_STATEMENT_TIMEOUT_MS",
+            60000,
+          ),
         },
         retryAttempts: 2, // Menos reintentos para no bloquear el arranque
         retryDelay: 3000,
@@ -62,6 +69,7 @@ import { ProductStockDashboardModule } from "./modules/products/product-stock-da
     CashPettyReportModule,
     LiquidationDashboardModule,
     ProductStockDashboardModule,
+    CommercialSalesModule,
     AuthModule,
   ],
   providers: [
