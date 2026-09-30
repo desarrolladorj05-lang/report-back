@@ -75,8 +75,9 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get("profile")
-  getProfile(@Request() request) {
-    return request.user;
+  async getProfile(@Request() request) {
+    const companyName = await this.authService.getCompanyName();
+    return { ...request.user, companyName };
   }
 
   @UseGuards(JwtAuthGuard)

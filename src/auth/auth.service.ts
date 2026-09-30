@@ -6,6 +6,7 @@ import { TenantDataSourceFactory } from "src/config/tenancy/tenant-ds.factory";
 import { TenantResolverService } from "src/config/tenancy/tenant-resolver.service";
 import { user_auth } from "src/users/user.entity";
 import { SSemUserModule } from "src/users/user_module.entity";
+import { Company } from "./company.entity";
 
 @Injectable()
 export class AuthService {
@@ -72,6 +73,16 @@ export class AuthService {
         modules: user.modules,
       },
     };
+  }
+
+  async getCompanyName(): Promise<string | null> {
+    const dataSource = await this.tenantDataSourceFactory.get();
+    const company = await dataSource.getRepository(Company).findOne({
+      where: { status: 40001, stateAudit: 1200001 },
+      select: { name: true },
+    });
+
+    return company?.name ?? null;
   }
 
   async register(username: string, password: string, clientOrigin?: string) {
