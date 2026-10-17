@@ -23,10 +23,20 @@ import { CommercialSalesModule } from "./modules/commercial-sales/commercial-sal
       load: [databaseConfig, appConfig],
     }),
     ThrottlerModule.forRoot({
+      getTracker: (request) => {
+        const cloudflareIp = request.headers?.["cf-connecting-ip"];
+        if (typeof cloudflareIp === "string" && cloudflareIp.trim()) {
+          return cloudflareIp.trim();
+        }
+
+        return request.ip;
+      },
+      errorMessage:
+        "Se realizaron demasiadas solicitudes. Espere unos segundos e intente nuevamente.",
       throttlers: [
         {
           ttl: 60000, // 1 minute in milliseconds
-          limit: 10, // 10 requests per minute per IP
+          limit: 120, // Dashboard requests per minute per real client IP
         },
       ],
     }),
