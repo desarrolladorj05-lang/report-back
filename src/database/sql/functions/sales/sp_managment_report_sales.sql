@@ -31,14 +31,13 @@ BEGIN
         -- Se lee sale una sola vez y la fecha operativa se calcula desde la caja.
         SELECT
             l.local_number AS idlocal,
-            CASE
-                WHEN ws.shift_name = 'MAÑANA' THEN
-                    (cr.opennig_date AT TIME ZONE 'America/Lima')::date
-                WHEN EXTRACT(hour FROM cr.opennig_date AT TIME ZONE 'America/Lima') < 7.5 THEN
-                    ((cr.opennig_date AT TIME ZONE 'America/Lima') - INTERVAL '1 day')::date
-                ELSE (cr.opennig_date AT TIME ZONE 'America/Lima')::date
-            END AS fecha_negocio_date,
+            public.fn_business_date(
+                cr.opennig_date,
+                ws.start_time,
+                ws.end_time
+            ) AS fecha_negocio_date,
             ws.shift_name AS turno_nombre,
+            ws."order" AS turno_order,
             s.total_amount,
             s.id_sale_operation_type
         FROM public.sale s
@@ -54,12 +53,13 @@ BEGIN
             v.idlocal,
             to_char(v.fecha_negocio_date, 'DD/MM/YYYY') AS fecha_negocio,
             v.turno_nombre,
+            v.turno_order,
             (SUM(v.total_amount) -
             SUM(CASE WHEN v.id_sale_operation_type IN (3,4,5,6) THEN v.total_amount ELSE 0 END)
             )::NUMERIC(15,2) AS monto_neta_real
         FROM ventas_filtradas v
         WHERE v.fecha_negocio_date BETWEEN v_fecha_inicio_mes_date AND v_fecha_busqueda_date
-        GROUP BY v.idlocal, v.fecha_negocio_date, v.turno_nombre
+        GROUP BY v.idlocal, v.fecha_negocio_date, v.turno_nombre, v.turno_order
     ),
     sedes_totales_diarios AS (
         -- Total por sede y día
@@ -130,13 +130,7 @@ BEGIN
                                 'turno', d.turno_nombre,
                                 'monto', d.monto_neta_real::NUMERIC(15,2),
                                 'porc_del_local', ROUND((d.monto_neta_real / NULLIF(v_hoy.total_dia_sede, 0)) * 100, 2)::NUMERIC(15,2)
-                            ) ORDER BY CASE UPPER(TRIM(d.turno_nombre))
-                                WHEN 'MAÑANA' THEN 1
-                                WHEN 'TARDE' THEN 2
-                                WHEN 'NOCHE' THEN 3
-                                WHEN 'MADRUGADA' THEN 4
-                                ELSE 99
-                            END
+                            ) ORDER BY d.turno_order, d.turno_nombre
                         )
                         FROM base_calculo_neta d 
                         WHERE d.idlocal = mc.idlocal AND d.fecha_negocio = p_fecha_busqueda

@@ -1,43 +1,53 @@
 DROP FUNCTION IF EXISTS public.sp_product_kardex(text, text, integer);
+DROP FUNCTION IF EXISTS public.sp_product_kardex(
+  text, text, integer, integer, integer
+);
+DROP FUNCTION IF EXISTS public.sp_product_kardex(
+  text, text, integer, integer, integer, date, date
+);
 
 CREATE OR REPLACE FUNCTION public.sp_product_kardex(
   p_date_from text,
   p_date_to text,
   p_product_id integer,
   p_page integer DEFAULT 1,
-  p_page_size integer DEFAULT 100
+  p_page_size integer DEFAULT 100,
+  p_output_v2_from date DEFAULT NULL,
+  p_income_v2_from date DEFAULT NULL
 ) RETURNS TABLE (resultado jsonb)
 LANGUAGE sql
 STABLE
 AS $function$
 WITH normalized AS MATERIALIZED (
   SELECT
-    mp.id_movement_product,
-    COALESCE(mp.effective_at, mp.created_at) AS movement_at,
-    mp.document_number,
-    COALESCE(mp.description, '-') AS description,
-    mp.id_local,
-    mp.warehouse_id,
-    mp.id_product,
-    mp.type AS movement_type_id,
-    COALESCE(mp.id_income::text, mp.id_sale::text, mp.id_movement_product::text) AS sort_key,
-    CASE WHEN mp.type IN (1400002, 1400006) THEN 1 ELSE 0 END AS sort_order,
+    movement.row_id AS id_movement_product,
+    movement.movement_at,
+    movement.document_number,
+    movement.description,
+    movement.local_id AS id_local,
+    movement.warehouse_id,
+    movement.product_id AS id_product,
+    movement.movement_type_id,
+    movement.sort_key,
+    movement.sort_order,
     CASE
-      WHEN mp.type IN (1400002, 1400003) THEN ABS(mp.quantity)
-      WHEN mp.type IN (1400004, 1400005) AND mp.quantity > 0 THEN mp.quantity
+      WHEN movement.direction = 'IN' THEN ABS(movement.quantity)
       ELSE 0::numeric
     END AS entry_quantity,
     CASE
-      WHEN mp.type IN (1400001, 1400006) THEN ABS(mp.quantity)
-      WHEN mp.type IN (1400004, 1400005) AND mp.quantity < 0 THEN ABS(mp.quantity)
+      WHEN movement.direction = 'OUT' THEN ABS(movement.quantity)
       ELSE 0::numeric
     END AS exit_quantity
-  FROM public.movement_product mp
-  WHERE mp.state_audit = 1200001
-    AND COALESCE(mp.state, 1) = 1
-    AND mp.id_product = p_product_id
-    AND mp.type IN (1400001, 1400002, 1400003, 1400004, 1400005, 1400006)
-    AND COALESCE(mp.effective_at, mp.created_at) < (p_date_to::date + 1)
+  FROM public.fn_report_inventory_hybrid_movements(
+    ((p_date_to::date + 1)::timestamp AT TIME ZONE 'America/Lima')
+      - interval '1 microsecond',
+    p_output_v2_from,
+    p_income_v2_from,
+    NULL,
+    NULL,
+    ARRAY[p_product_id]
+  ) movement
+  WHERE movement.product_id = p_product_id
 ),
 opening AS (
   SELECT warehouse_id,

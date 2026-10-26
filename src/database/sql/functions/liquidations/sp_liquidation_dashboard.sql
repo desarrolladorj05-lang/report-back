@@ -11,14 +11,11 @@ WITH scope AS MATERIALIZED (
   SELECT
     cr.id_cash_register,
     cr.cash_register_code,
-    CASE
-      WHEN UPPER(TRIM(ws.shift_name)) = 'MAÑANA'
-        THEN (cr.opennig_date AT TIME ZONE 'America/Lima')::date
-      WHEN (cr.opennig_date AT TIME ZONE 'America/Lima')::time
-        < COALESCE(ws_ref.start_time, '07:30:00'::time)
-        THEN ((cr.opennig_date AT TIME ZONE 'America/Lima') - interval '1 day')::date
-      ELSE (cr.opennig_date AT TIME ZONE 'America/Lima')::date
-    END AS business_date,
+    public.fn_business_date(
+      cr.opennig_date,
+      ws.start_time,
+      ws.end_time
+    ) AS business_date,
     loc.local_number,
     loc.id_local,
     COALESCE(loc.local_name, loc.name, 'Sede ' || loc.local_number) AS local_name,
@@ -38,14 +35,6 @@ WITH scope AS MATERIALIZED (
   LEFT JOIN public.person person
     ON person.id_person = box_user.id_person AND person.state_audit = 1200001
   LEFT JOIN public.work_shift ws ON ws.id_work_shift = cr.id_work_shift
-  LEFT JOIN LATERAL (
-    SELECT morning.start_time
-    FROM public.work_shift morning
-    WHERE morning.id_local = loc.id_local
-      AND UPPER(TRIM(morning.shift_name)) = 'MAÑANA'
-    ORDER BY morning.start_time
-    LIMIT 1
-  ) ws_ref ON TRUE
   WHERE cr.state_audit = 1200001
     -- Pre-filter using the raw column so an index on opennig_date can be used.
     -- The extra day preserves overnight shifts whose business date is previous.
@@ -57,14 +46,11 @@ WITH scope AS MATERIALIZED (
       (p_date_to::date + interval '2 days')::timestamp
       AT TIME ZONE 'America/Lima'
     )
-    AND CASE
-      WHEN UPPER(TRIM(ws.shift_name)) = 'MAÑANA'
-        THEN (cr.opennig_date AT TIME ZONE 'America/Lima')::date
-      WHEN (cr.opennig_date AT TIME ZONE 'America/Lima')::time
-        < COALESCE(ws_ref.start_time, '07:30:00'::time)
-        THEN ((cr.opennig_date AT TIME ZONE 'America/Lima') - interval '1 day')::date
-      ELSE (cr.opennig_date AT TIME ZONE 'America/Lima')::date
-    END BETWEEN p_date_from::date AND p_date_to::date
+    AND public.fn_business_date(
+      cr.opennig_date,
+      ws.start_time,
+      ws.end_time
+    ) BETWEEN p_date_from::date AND p_date_to::date
     AND (p_local_number IS NULL OR loc.local_number = p_local_number)
 ),
 valid_payment_methods AS MATERIALIZED (

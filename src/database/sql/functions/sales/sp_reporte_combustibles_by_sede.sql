@@ -19,15 +19,13 @@ BEGIN
             l.local_number,
             COALESCE(l.name, 'SEDE ' || l.local_number) AS nombre_sede_real,
             ws.shift_name AS nombre_turno,
+            ws."order" AS orden_turno,
             s.id_sale_operation_type,
             s.transferencia_gratuita,
-            CASE
-                WHEN ws.shift_name = 'MAÑANA' THEN
-                    to_char(cr.opennig_date AT TIME ZONE 'America/Lima', 'DD/MM/YYYY')
-                WHEN EXTRACT(hour FROM cr.opennig_date AT TIME ZONE 'America/Lima') < 7.5 THEN
-                    to_char((cr.opennig_date AT TIME ZONE 'America/Lima') - INTERVAL '1 day', 'DD/MM/YYYY')
-                ELSE to_char(cr.opennig_date AT TIME ZONE 'America/Lima', 'DD/MM/YYYY')
-            END AS fecha_negocio
+            to_char(
+                public.fn_business_date(cr.opennig_date, ws.start_time, ws.end_time),
+                'DD/MM/YYYY'
+            ) AS fecha_negocio
         FROM public.sale s
         INNER JOIN public.local l ON s.id_local = l.id_local
         INNER JOIN public.cash_register cr ON cr.id_cash_register = s.id_cash_register
@@ -42,16 +40,14 @@ BEGIN
             vf.local_number,
             vf.nombre_sede_real,
             vf.nombre_turno,
-            -- Asignación manual del ID de turno según su nombre
-            CASE 
-                WHEN UPPER(vf.nombre_turno) LIKE '%MAÑANA%' THEN 1
-                WHEN UPPER(vf.nombre_turno) LIKE '%TARDE%' THEN 2
-                WHEN UPPER(vf.nombre_turno) LIKE '%NOCHE%' THEN 3
-                WHEN UPPER(vf.nombre_turno) LIKE '%MADRUGADA%' THEN 4
-                ELSE 99 -- Para turnos no identificados o totales
-            END AS id_turno,
-            (sd.product_snapshot->>'productId')::INT as id_producto,
-            sd.product_snapshot->>'description' as producto,
+            COALESCE(vf.orden_turno, 99) AS id_turno,
+            sd.id_product as id_producto,
+            COALESCE(
+                NULLIF(p.foreign_name, ''),
+                NULLIF(p.description, ''),
+                sd.product_snapshot->>'description',
+                'Producto'
+            ) as producto,
             (CASE WHEN vf.id_sale_operation_type = 4 THEN 0 ELSE sd.quantity END)::numeric(12,3) as quantity_filtrada,
             (CASE WHEN vf.id_sale_operation_type = 4 THEN sd.quantity ELSE 0 END)::numeric(12,3) as quantity_serafin_solo,
             (CASE 
@@ -61,6 +57,7 @@ BEGIN
              END)::numeric(12,2) as subtotal_item
         FROM ventas_id_filtradas vf
         INNER JOIN sale_detail sd ON vf.id_sale = sd.id_sale
+        LEFT JOIN public.product p ON p.product_id = sd.id_product
         WHERE vf.fecha_negocio = p_fecha_busqueda
           AND (sd.product_snapshot->>'groupProductId')::INT = 20006
     ),

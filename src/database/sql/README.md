@@ -18,3 +18,10 @@ sql/
 Each function must live in its own `.sql` file and use the database function
 name as the filename. Index scripts may contain the related indexes for one
 dashboard or domain.
+
+For product inventory reports, install
+`functions/products/00-fn_report_inventory_hybrid_movements.sql` before the
+procedures that depend on it.
+
+For sales reports, install `functions/sales/00-fn-business-date.sql` before
+the views and procedures in the same directory.

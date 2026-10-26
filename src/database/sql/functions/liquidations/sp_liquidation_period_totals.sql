@@ -18,25 +18,14 @@ AS $function$
 WITH scope AS MATERIALIZED (
   SELECT
     cr.id_cash_register,
-    CASE
-      WHEN UPPER(TRIM(ws.shift_name)) = 'MAÑANA'
-        THEN (cr.opennig_date AT TIME ZONE 'America/Lima')::date
-      WHEN (cr.opennig_date AT TIME ZONE 'America/Lima')::time
-        < COALESCE(ws_ref.start_time, '07:30:00'::time)
-        THEN ((cr.opennig_date AT TIME ZONE 'America/Lima') - interval '1 day')::date
-      ELSE (cr.opennig_date AT TIME ZONE 'America/Lima')::date
-    END AS business_date
+    public.fn_business_date(
+      cr.opennig_date,
+      ws.start_time,
+      ws.end_time
+    ) AS business_date
   FROM public.cash_register cr
   INNER JOIN public.local loc ON loc.id_local = cr.id_local
   LEFT JOIN public.work_shift ws ON ws.id_work_shift = cr.id_work_shift
-  LEFT JOIN LATERAL (
-    SELECT morning.start_time
-    FROM public.work_shift morning
-    WHERE morning.id_local = loc.id_local
-      AND UPPER(TRIM(morning.shift_name)) = 'MAÑANA'
-    ORDER BY morning.start_time
-    LIMIT 1
-  ) ws_ref ON TRUE
   WHERE cr.state_audit = 1200001
     AND cr.opennig_date >= (
       (p_date_from::date - interval '1 day')::timestamp AT TIME ZONE 'America/Lima'
@@ -44,14 +33,11 @@ WITH scope AS MATERIALIZED (
     AND cr.opennig_date < (
       (p_date_to::date + interval '2 days')::timestamp AT TIME ZONE 'America/Lima'
     )
-    AND CASE
-      WHEN UPPER(TRIM(ws.shift_name)) = 'MAÑANA'
-        THEN (cr.opennig_date AT TIME ZONE 'America/Lima')::date
-      WHEN (cr.opennig_date AT TIME ZONE 'America/Lima')::time
-        < COALESCE(ws_ref.start_time, '07:30:00'::time)
-        THEN ((cr.opennig_date AT TIME ZONE 'America/Lima') - interval '1 day')::date
-      ELSE (cr.opennig_date AT TIME ZONE 'America/Lima')::date
-    END BETWEEN p_date_from::date AND p_date_to::date
+    AND public.fn_business_date(
+      cr.opennig_date,
+      ws.start_time,
+      ws.end_time
+    ) BETWEEN p_date_from::date AND p_date_to::date
     AND (p_local_number IS NULL OR loc.local_number = p_local_number)
 ),
 valid_payment_methods AS MATERIALIZED (

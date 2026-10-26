@@ -1,43 +1,54 @@
+DROP FUNCTION IF EXISTS public.sp_product_stock_dashboard(text, text, integer);
+DROP FUNCTION IF EXISTS public.sp_product_stock_dashboard(
+  text, text, integer, date, date
+);
+
 CREATE OR REPLACE FUNCTION public.sp_product_stock_dashboard(
   p_date_from text,
   p_date_to text,
-  p_local_number integer
+  p_local_number integer,
+  p_output_v2_from date DEFAULT NULL,
+  p_income_v2_from date DEFAULT NULL
 ) RETURNS TABLE (resultado jsonb)
 LANGUAGE sql
 STABLE
 AS $function$
 WITH movement_base AS MATERIALIZED (
   SELECT
-    mp.id_movement_product,
-    COALESCE(mp.effective_at, mp.created_at) AS movement_at,
-    mp.id_product,
-    mp.id_local,
+    movement.row_id AS id_movement_product,
+    movement.movement_at,
+    movement.product_id AS id_product,
+    movement.local_id AS id_local,
     loc.local_number,
-    mp.warehouse_id,
-    mp.type AS movement_type_id,
-    mp.document_number,
-    COALESCE(mp.quantity, 0)::numeric AS quantity,
-    mp.created_by
-  FROM public.movement_product mp
-  INNER JOIN public.local loc ON loc.id_local = mp.id_local
-  WHERE mp.state_audit = 1200001
-    AND COALESCE(mp.state, 1) = 1
-    AND mp.type IN (1400001, 1400002, 1400003, 1400004, 1400005, 1400006)
-    AND COALESCE(mp.effective_at, mp.created_at) < (p_date_to::date + 1)
-    AND (p_local_number IS NULL OR loc.local_number = p_local_number)
+    movement.warehouse_id,
+    movement.movement_type_id,
+    movement.document_number,
+    movement.quantity,
+    movement.direction,
+    movement.created_by
+  FROM public.fn_report_inventory_hybrid_movements(
+    ((p_date_to::date + 1)::timestamp AT TIME ZONE 'America/Lima')
+      - interval '1 microsecond',
+    p_output_v2_from,
+    p_income_v2_from,
+    CASE
+      WHEN p_local_number IS NULL THEN NULL
+      ELSE ARRAY(
+        SELECT selected_local.id_local
+        FROM public.local selected_local
+        WHERE selected_local.local_number = p_local_number
+      )
+    END,
+    NULL,
+    NULL
+  ) movement
+  INNER JOIN public.local loc ON loc.id_local = movement.local_id
+  WHERE p_local_number IS NULL OR loc.local_number = p_local_number
 ),
 normalized AS (
   SELECT *,
-    CASE
-      WHEN movement_type_id IN (1400002, 1400003) THEN ABS(quantity)
-      WHEN movement_type_id IN (1400004, 1400005) AND quantity > 0 THEN quantity
-      ELSE 0::numeric
-    END AS income,
-    CASE
-      WHEN movement_type_id IN (1400001, 1400006) THEN ABS(quantity)
-      WHEN movement_type_id IN (1400004, 1400005) AND quantity < 0 THEN ABS(quantity)
-      ELSE 0::numeric
-    END AS output
+    CASE WHEN direction = 'IN' THEN ABS(quantity) ELSE 0::numeric END AS income,
+    CASE WHEN direction = 'OUT' THEN ABS(quantity) ELSE 0::numeric END AS output
   FROM movement_base
 ),
 period_rows AS MATERIALIZED (

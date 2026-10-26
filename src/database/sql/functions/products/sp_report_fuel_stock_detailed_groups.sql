@@ -18,12 +18,21 @@
 -- Reglas:
 --   - Facturas/boletas CANJE no se consideran como ventas del reporte
 -- =============================================================================
+DROP FUNCTION IF EXISTS public.sp_report_fuel_stock_detailed_groups(
+  timestamptz, timestamptz, uuid[], uuid[], integer[]
+);
+DROP FUNCTION IF EXISTS public.sp_report_fuel_stock_detailed_groups(
+  timestamptz, timestamptz, uuid[], uuid[], integer[], date, date
+);
+
 CREATE OR REPLACE FUNCTION public.sp_report_fuel_stock_detailed_groups(
   p_created_from timestamptz,
   p_created_to timestamptz,
   p_local_ids uuid[] DEFAULT NULL,
   p_warehouse_ids uuid[] DEFAULT NULL,
-  p_product_ids int[] DEFAULT NULL
+  p_product_ids int[] DEFAULT NULL,
+  p_output_v2_from date DEFAULT NULL,
+  p_income_v2_from date DEFAULT NULL
 )
 RETURNS TABLE(
   local_id text,
@@ -42,6 +51,8 @@ WITH params AS NOT MATERIALIZED (
   SELECT
     p_created_from::date AS created_from,
     p_created_to::date AS created_to,
+    p_output_v2_from AS output_v2_from,
+    p_income_v2_from AS income_v2_from,
     CASE
       WHEN p_local_ids IS NULL OR array_length(p_local_ids, 1) = 0 THEN NULL
       ELSE p_local_ids
@@ -472,10 +483,63 @@ movement_cash_base AS (
   ) mp ON true
 ),
 -- Las ramas son excluyentes: opening_date no nulo usa siempre la fecha de caja
-movement_base AS (
+legacy_movement_base_unused AS (
   SELECT * FROM movement_effective_base
   UNION ALL
   SELECT * FROM movement_cash_base
+),
+hybrid_movements AS MATERIALIZED (
+  SELECT movement.*
+  FROM params p
+  CROSS JOIN LATERAL public.fn_report_inventory_hybrid_movements(
+    ((p.created_to + 2)::timestamp AT TIME ZONE 'America/Lima'),
+    p_output_v2_from,
+    p_income_v2_from,
+    COALESCE(
+      p.local_ids,
+      (SELECT array_agg(DISTINCT selected.local_id) FROM selected_tanks selected)
+    ),
+    COALESCE(
+      p.warehouse_ids,
+      (SELECT array_agg(DISTINCT selected.warehouse_id) FROM selected_tanks selected)
+    ),
+    COALESCE(
+      p.product_ids,
+      (SELECT array_agg(DISTINCT selected.product_id) FROM selected_tanks selected)
+    )
+  ) movement
+),
+movement_base AS (
+  SELECT
+    movement.local_id,
+    movement.product_id,
+    (
+      COALESCE(cr.opennig_date, movement.movement_at)
+      AT TIME ZONE 'America/Lima'
+    )::date AS movement_date,
+    movement.movement_type_id AS movement_type,
+    movement.quantity,
+    movement.direction,
+    movement.sale_id,
+    s.id_sale_operation_type AS sale_operation_type,
+    s.id_sale_document_type AS sale_document_type,
+    COALESCE(cr.cash_register_type = 1970002, false) AS is_external
+  FROM hybrid_movements movement
+  LEFT JOIN public.sale s
+    ON s.id_sale = movement.sale_id
+  LEFT JOIN public.cash_register cr
+    ON cr.id_cash_register = COALESCE(movement.cash_register_id, s.id_cash_register)
+  JOIN fallback_bounds fb
+    ON fb.local_id = movement.local_id
+   AND fb.product_id = movement.product_id
+  WHERE (
+      COALESCE(cr.opennig_date, movement.movement_at)
+      AT TIME ZONE 'America/Lima'
+    )::date > COALESCE(fb.first_anchor_date, '-infinity'::date)
+    AND (
+      COALESCE(cr.opennig_date, movement.movement_at)
+      AT TIME ZONE 'America/Lima'
+    )::date <= fb.last_missing_date
 ),
 -- Se materializa porque el saldo de cada fecha faltante reutiliza este conjunto.
 -- Así se evita reconstruir las ventas y movimientos para cada fila del reporte.
@@ -486,29 +550,28 @@ movement_daily AS MATERIALIZED (
     mb.movement_date,
     COALESCE(SUM(
       CASE
-        WHEN mb.movement_type IN (1400002, 1400003) THEN ABS(mb.quantity)
-        WHEN mb.movement_type IN (1400004, 1400005) AND mb.quantity > 0 THEN mb.quantity
+        WHEN mb.direction = 'IN' THEN ABS(mb.quantity)
         ELSE 0
       END
     ), 0)::numeric AS income,
     COALESCE(SUM(
       CASE
-        WHEN mb.movement_type = 1400001
+        WHEN mb.direction = 'OUT'
          AND COALESCE(mb.sale_operation_type, 0) = 3
           THEN ABS(mb.quantity)
-        WHEN mb.movement_type = 1400006 THEN ABS(mb.quantity)
-        WHEN mb.movement_type IN (1400004, 1400005) AND mb.quantity < 0
+        WHEN mb.direction = 'OUT' AND mb.sale_id IS NULL
           THEN ABS(mb.quantity)
         ELSE 0
       END
     ), 0)::numeric AS internal_consumption,
     COALESCE(SUM(CASE
-      WHEN mb.movement_type = 1400001 AND COALESCE(mb.sale_operation_type, 0) = 8
+      WHEN mb.direction = 'OUT' AND COALESCE(mb.sale_operation_type, 0) = 8
       THEN ABS(mb.quantity) ELSE 0 END
     ), 0)::numeric AS warehouse_transfer,
     COALESCE(SUM(
       CASE
-        WHEN mb.movement_type = 1400001
+        WHEN mb.direction = 'OUT'
+         AND mb.sale_id IS NOT NULL
          AND COALESCE(mb.sale_operation_type, 0) NOT IN (3, 4, 8)
          AND mb.is_external = false
          AND NOT (
@@ -521,7 +584,8 @@ movement_daily AS MATERIALIZED (
     ), 0)::numeric AS sales,
     COALESCE(SUM(
       CASE
-        WHEN mb.movement_type = 1400001
+        WHEN mb.direction = 'OUT'
+         AND mb.sale_id IS NOT NULL
          AND COALESCE(mb.sale_operation_type, 0) NOT IN (3, 4, 8)
          AND mb.is_external = true
          AND NOT (

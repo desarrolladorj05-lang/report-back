@@ -4,46 +4,31 @@ CREATE OR REPLACE FUNCTION public.sp_report_contometer_by_product(
         p_id_turno integer DEFAULT NULL,
         p_id_producto integer DEFAULT NULL
     ) RETURNS jsonb LANGUAGE plpgsql STABLE AS $function$
-DECLARE v_shift_pattern text;
-v_shift_name text;
+DECLARE v_shift_name text;
 v_cash_ids uuid [];
-BEGIN v_shift_pattern := CASE
-    p_id_turno
-    WHEN 1 THEN 'MAÑANA'
-    WHEN 2 THEN 'TARDE'
-    WHEN 3 THEN 'NOCHE'
-    WHEN 4 THEN 'MADRUGADA'
-    ELSE NULL
-END;
-v_shift_name := COALESCE(v_shift_pattern, 'TODO EL DIA');
+BEGIN
+v_shift_name := 'TODO EL DIA';
+SELECT COALESCE(ws.shift_name, v_shift_name) INTO v_shift_name
+FROM public.work_shift ws
+INNER JOIN public.local l ON l.id_local = ws.id_local
+WHERE l.local_number = p_id_local
+  AND ws."order" = p_id_turno
+  AND ws.state_audit = 1200001
+LIMIT 1;
 -- 1. Capturamos las cajas del día
 SELECT ARRAY_AGG(DISTINCT cr.id_cash_register) INTO v_cash_ids
 FROM public.cash_register cr
     JOIN public.local l ON cr.id_local = l.id_local
     JOIN public.work_shift ws ON cr.id_work_shift = ws.id_work_shift
-    LEFT JOIN public.work_shift ws_ref ON l.id_local = ws_ref.id_local
-    AND ws_ref.shift_name = 'MAÑANA'
 WHERE l.local_number = p_id_local
     AND cr.state_audit = 1200001 -- Registro Activo
     AND (
-        v_shift_pattern IS NULL
-        OR ws.shift_name = v_shift_pattern
+        p_id_turno IS NULL
+        OR ws."order" = p_id_turno
     )
-    AND (
-        CASE
-            WHEN ws.shift_name = 'MAÑANA' THEN to_char(
-                (cr.opennig_date AT TIME ZONE 'America/Lima'),
-                'DD/MM/YYYY'
-            )
-            WHEN (cr.opennig_date AT TIME ZONE 'America/Lima')::time < COALESCE(ws_ref.start_time, '07:30:00'::time) THEN to_char(
-                (cr.opennig_date AT TIME ZONE 'America/Lima') - interval '1 day',
-                'DD/MM/YYYY'
-            )
-            ELSE to_char(
-                (cr.opennig_date AT TIME ZONE 'America/Lima'),
-                'DD/MM/YYYY'
-            )
-        END
+    AND to_char(
+        public.fn_business_date(cr.opennig_date, ws.start_time, ws.end_time),
+        'DD/MM/YYYY'
     ) = p_fecha_busqueda;
 -- Si no hay ninguna caja abierta o cerrada hoy, devolvemos estructura limpia en lugar de null
 IF v_cash_ids IS NULL

@@ -14,6 +14,10 @@ Todos los endpoints, excepto `time`, requieren JWT.
 `date` se recibe como texto porque las funciones heredadas esperan el formato
 operativo del reporte. Los identificadores opcionales se transforman a numero.
 
+La fecha operativa se calcula con `fn_business_date` usando `start_time` y
+`end_time` de `work_shift`. Los filtros y el orden de turnos usan
+`work_shift.order`; no dependen de nombres ni de horas codificadas por tenant.
+
 Ejemplo:
 
 ```bash

@@ -13,18 +13,11 @@ BEGIN
     FROM public.cash_register cr
     JOIN public.local l ON cr.id_local = l.id_local 
     JOIN public.work_shift ws ON cr.id_work_shift = ws.id_work_shift
-    LEFT JOIN public.work_shift ws_ref ON l.id_local = ws_ref.id_local AND ws_ref.shift_name = 'MAÑANA'
     WHERE (p_id_local IS NULL OR l.local_number = p_id_local)
         AND cr.state_audit = 1200001
-        AND (
-        CASE
-            WHEN ws.shift_name = 'MAÑANA' THEN 
-                to_char((cr.opennig_date AT TIME ZONE 'America/Lima'), 'DD/MM/YYYY')
-            WHEN (cr.opennig_date AT TIME ZONE 'America/Lima')::time < COALESCE(ws_ref.start_time, '07:30:00'::time) THEN 
-                to_char((cr.opennig_date AT TIME ZONE 'America/Lima') - interval '1 day', 'DD/MM/YYYY')
-            ELSE 
-                to_char((cr.opennig_date AT TIME ZONE 'America/Lima'), 'DD/MM/YYYY')
-        END
+        AND to_char(
+            public.fn_business_date(cr.opennig_date, ws.start_time, ws.end_time),
+            'DD/MM/YYYY'
         ) = p_fecha_busqueda;
 
     RETURN QUERY
@@ -60,13 +53,7 @@ BEGIN
     metricas_agrupadas AS (
         SELECT
             bv.local_number, bv.local_nombre_real,
-            MAX(CASE 
-                WHEN UPPER(TRIM(bv.nombre_turno)) = 'MAÑANA'   THEN 1
-                WHEN UPPER(TRIM(bv.nombre_turno)) = 'TARDE'    THEN 2
-                WHEN UPPER(TRIM(bv.nombre_turno)) = 'NOCHE'    THEN 3
-                WHEN UPPER(TRIM(bv.nombre_turno)) = 'MADRUGADA' THEN 4
-                ELSE NULL 
-            END) AS id_work_shift,
+            MAX(bv.shift_order) AS id_work_shift,
             COALESCE(bv.nombre_turno, 'TOTAL GENERAL') as grupo,
             (SUM(total_amount) - 
             SUM(CASE WHEN id_sale_operation_type IN (3,4,5,6,8) THEN total_amount ELSE 0 END)

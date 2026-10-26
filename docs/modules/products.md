@@ -24,6 +24,14 @@ El reporte de combustible debe respetar las funciones compartidas de
 Backoffice: no se deben reemplazar o modificar desde Reporte Gerencial sin una
 coordinacion explicita.
 
+## Corte de inventario
+
+Las fechas por tenant se configuran en
+`src/config/tenancy/inventory-version-cutover.config.ts`. En Santa Isabel, las
+salidas del dia anterior al corte combinan V1 y V2, eliminan duplicados y
+priorizan V2; desde el corte se usa V2. Los ingresos cambian directamente de V1
+a V2 en la fecha configurada.
+
 ## Rendimiento
 
 Los rangos amplios pueden procesar muchos movimientos. Antes de agregar nuevos

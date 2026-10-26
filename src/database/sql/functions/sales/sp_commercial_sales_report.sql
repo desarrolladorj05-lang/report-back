@@ -24,13 +24,11 @@ WITH scoped_sales AS MATERIALIZED (
     COALESCE(ol.sort_order, 999) AS local_order,
     s.id_sale_operation_type,
     s.transferencia_gratuita,
-    CASE
-      WHEN ws.shift_name = 'MAÑANA' THEN
-        (cr.opennig_date AT TIME ZONE 'America/Lima')::date
-      WHEN EXTRACT(hour FROM cr.opennig_date AT TIME ZONE 'America/Lima') < 7.5 THEN
-        ((cr.opennig_date AT TIME ZONE 'America/Lima') - INTERVAL '1 day')::date
-      ELSE (cr.opennig_date AT TIME ZONE 'America/Lima')::date
-    END AS sale_date
+    public.fn_business_date(
+      cr.opennig_date,
+      ws.start_time,
+      ws.end_time
+    ) AS sale_date
   FROM public.sale s
   INNER JOIN public.local l ON l.id_local = s.id_local
   INNER JOIN public.cash_register cr ON cr.id_cash_register = s.id_cash_register

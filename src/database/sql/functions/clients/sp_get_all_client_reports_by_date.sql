@@ -7,28 +7,20 @@ OR REPLACE FUNCTION public.sp_get_all_client_reports_by_date (
 ) RETURNS TABLE (resultado jsonb) LANGUAGE plpgsql AS $function$
 DECLARE
     v_cash_registers UUID[];
-    v_nombre_turno_busqueda TEXT;
 BEGIN
-    -- 1. Traducir el ID manual al nombre que entiende la base de datos
-    v_nombre_turno_busqueda := CASE 
-        WHEN p_id_turno = 1 THEN 'MAÑANA'
-        WHEN p_id_turno = 2 THEN 'TARDE'
-        WHEN p_id_turno = 3 THEN 'NOCHE'
-        WHEN p_id_turno = 4 THEN 'MADRUGADA'
-        ELSE NULL 
-    END;
-
-    -- 2. Obtener IDs de cajas filtrando por turno si corresponde
-    -- Modificamos la lógica de obtención de cajas para que respete el turno
+    -- Obtener cajas por fecha operativa y orden configurable del turno.
     SELECT array_agg(cr.id_cash_register) INTO v_cash_registers
     FROM public.cash_register cr
     JOIN public.local l ON cr.id_local = l.id_local
     JOIN public.work_shift ws ON cr.id_work_shift = ws.id_work_shift
     WHERE (p_id_local IS NULL OR l.local_number = p_id_local)
       AND cr.state_audit = 1200001
-      AND to_char((cr.opennig_date AT TIME ZONE 'America/Lima'), 'DD/MM/YYYY') = p_fecha_busqueda
-      -- Si v_nombre_turno_busqueda es NULL, trae todos los turnos
-      AND (v_nombre_turno_busqueda IS NULL OR UPPER(TRIM(ws.shift_name)) = v_nombre_turno_busqueda);
+      AND public.fn_business_date(
+        cr.opennig_date,
+        ws.start_time,
+        ws.end_time
+      ) = to_date(p_fecha_busqueda, 'DD/MM/YYYY')
+      AND (p_id_turno IS NULL OR ws."order" = p_id_turno);
 
     RETURN QUERY
     WITH base_datos AS (

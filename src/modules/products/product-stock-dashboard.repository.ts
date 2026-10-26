@@ -7,11 +7,24 @@ import {
   ProductLocalPresentationProcedureRow,
 } from "src/database/procedures-documentation/product-stock-dashboard";
 import { BaseRepository } from "src/database/repositories/base.repository";
+import { getInventoryV2CutoverConfig } from "src/config/tenancy/inventory-version-cutover.config";
+import { TenancyContextService } from "src/config/tenancy/tenancy.context";
 
 @Injectable()
 export class ProductStockDashboardRepository extends BaseRepository<any> {
-  constructor(dsFactory: TenantDataSourceFactory) {
+  constructor(
+    dsFactory: TenantDataSourceFactory,
+    private readonly tenancyContext: TenancyContextService,
+  ) {
     super(Object as any, dsFactory);
+  }
+
+  private getVersionParams() {
+    const config = getInventoryV2CutoverConfig(this.tenancyContext.getDbName());
+    return {
+      p_output_v2_from: config?.outputsV2From ?? null,
+      p_income_v2_from: config?.fullV2From ?? null,
+    };
   }
 
   async getDashboard(dateFrom: string, dateTo: string, localNumber?: number) {
@@ -21,6 +34,7 @@ export class ProductStockDashboardRepository extends BaseRepository<any> {
         p_date_from: dateFrom,
         p_date_to: dateTo,
         p_local_number: localNumber ?? null,
+        ...this.getVersionParams(),
       },
     });
     const first = rows[0];
@@ -44,6 +58,7 @@ export class ProductStockDashboardRepository extends BaseRepository<any> {
         p_product_id: productId,
         p_page: page,
         p_page_size: pageSize,
+        ...this.getVersionParams(),
       },
     });
     const first = rows[0];
@@ -76,6 +91,7 @@ export class ProductStockDashboardRepository extends BaseRepository<any> {
         p_local_ids: allowedLocalIds?.length ? allowedLocalIds : null,
         p_warehouse_ids: null,
         p_product_ids: null,
+        ...this.getVersionParams(),
       },
     }) as Promise<FuelStockReportProcedureRow[]>;
   }

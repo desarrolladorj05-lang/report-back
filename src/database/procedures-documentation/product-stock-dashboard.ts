@@ -56,9 +56,17 @@ export const ProductStockDashboardProcedure = {
       p_date_from: string;
       p_date_to: string;
       p_local_number: number | null;
+      p_output_v2_from: string | null;
+      p_income_v2_from: string | null;
     }>(),
     returns: defineReturns<ProductStockDashboardProcedureResult>(),
-    paramOrder: ["p_date_from", "p_date_to", "p_local_number"],
+    paramOrder: [
+      "p_date_from",
+      "p_date_to",
+      "p_local_number",
+      "p_output_v2_from",
+      "p_income_v2_from",
+    ],
   },
   PRODUCT_KARDEX: {
     name: "sp_product_kardex",
@@ -68,6 +76,8 @@ export const ProductStockDashboardProcedure = {
       p_product_id: number;
       p_page: number;
       p_page_size: number;
+      p_output_v2_from: string | null;
+      p_income_v2_from: string | null;
     }>(),
     returns: defineReturns<ProductKardexProcedureResult>(),
     paramOrder: [
@@ -76,6 +86,8 @@ export const ProductStockDashboardProcedure = {
       "p_product_id",
       "p_page",
       "p_page_size",
+      "p_output_v2_from",
+      "p_income_v2_from",
     ],
   },
   FUEL_STOCK_REPORT: {
@@ -86,6 +98,8 @@ export const ProductStockDashboardProcedure = {
       p_local_ids: string[] | null;
       p_warehouse_ids: string[] | null;
       p_product_ids: number[] | null;
+      p_output_v2_from: string | null;
+      p_income_v2_from: string | null;
     }>(),
     returns: defineReturns<FuelStockReportProcedureRow>(),
     paramOrder: [
@@ -94,6 +108,8 @@ export const ProductStockDashboardProcedure = {
       "p_local_ids",
       "p_warehouse_ids",
       "p_product_ids",
+      "p_output_v2_from",
+      "p_income_v2_from",
     ],
   },
   PRODUCT_LOCAL_PRESENTATION: {
